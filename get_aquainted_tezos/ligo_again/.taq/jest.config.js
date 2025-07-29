@@ -27,7 +27,6 @@ module.exports = {
         "enableGlobally": false
     },
     "forceCoverageMatch": [],
-    "globals": {},
     "haste": {
         "computeSha1": false,
         "enableSymlinks": false,
@@ -90,6 +89,15 @@ module.exports = {
     "testRegex": [],
     "testRunner": "jest-circus/runner",
     "testSequencer": "@jest/test-sequencer",
+    "transform": {
+        '^.+\\.tsx|js|jsx|ts|tsx?$': [
+          'ts-jest',
+          {
+            useESM: true,
+            esModuleInterop: true,
+          }
+        ]
+      },
     "transformIgnorePatterns": [
         "/node_modules/",
         "\\.pnp\\.[^\\/]+$"

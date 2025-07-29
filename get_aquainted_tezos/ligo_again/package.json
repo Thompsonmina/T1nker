@@ -17,5 +17,9 @@
     "@taqueria/plugin-taquito": "^0.73.0",
     "@types/jest": "^30.0.0",
     "ts-jest": "^29.4.0"
+  },
+  "dependencies": {
+    "@taqueria/toolkit": "^0.73.0",
+    "@taquito/taquito": "^22.0.0"
   }
 }
