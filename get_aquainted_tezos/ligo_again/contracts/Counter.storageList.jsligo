@@ -4,3 +4,5 @@
 
 // IMPORTANT: We suggest always explicitly typing your storage values:
 // E.g.: `const storage: int = 10` or `const storage: Contract.[Namespace].storage = 10`
+
+const storage: Contract.Counter.storage = 100

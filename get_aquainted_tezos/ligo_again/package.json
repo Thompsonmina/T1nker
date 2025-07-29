@@ -12,7 +12,10 @@
   "devDependencies": {
     "@taqueria/plugin-core": "^0.73.0",
     "@taqueria/plugin-flextesa": "^0.73.0",
+    "@taqueria/plugin-jest": "^0.73.0",
     "@taqueria/plugin-ligo": "^0.73.0",
-    "@taqueria/plugin-taquito": "^0.73.0"
+    "@taqueria/plugin-taquito": "^0.73.0",
+    "@types/jest": "^30.0.0",
+    "ts-jest": "^29.4.0"
   }
 }

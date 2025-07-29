@@ -1,6 +1,6 @@
 
 export namespace Counter {
-    type storage = int;
+    export type storage = int;
     type ret = [list<operation>, storage];
     // Three entrypoints
   
