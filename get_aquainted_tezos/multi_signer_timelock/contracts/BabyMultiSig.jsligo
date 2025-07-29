@@ -1,0 +1,162 @@
+export namespace BabyMultiSig {
+
+    export type proposal = {
+        destination: address,
+        amount: tez,
+        approvals: set<address>,
+        executed: bool
+    };
+
+    export type storage = {
+        signers: set<address>,
+        threshold: nat,
+        proposals: map<nat, proposal>,
+        proposal_counter: nat
+    };
+
+    
+    type propose_param = {
+        destination: address,
+        amount: tez
+    };
+
+    // Return type for operations
+    type return_ = [list<operation>, storage];
+
+    // Helper functions
+    const is_signer = (addr: address, store: storage): bool => {
+        return Set.mem(addr, store.signers);
+    };
+
+    const get_proposal = (id: nat, store: storage): proposal => {
+        return match(Map.find_opt(id, store.proposals)) {
+            when(Some(p)): p;
+            when(None): failwith("Proposal not found") as proposal
+        };
+    };
+
+    @entry
+    const propose = (param: propose_param, store: storage): return_ => {
+        // Check if sender is a signer
+        if (!is_signer(Tezos.get_sender(), store)) {
+            return failwith("Not authorized") as return_;
+        }
+
+        // Create new proposal
+        const new_proposal = {
+            destination: param.destination,
+            amount: param.amount,
+            approvals: Set.literal([Tezos.get_sender()]), // Auto-approve by proposer
+            executed: false
+        };
+
+        // Add proposal to storage
+        const new_proposals = Map.add(
+            store.proposal_counter,
+            new_proposal,
+            store.proposals
+        );
+
+        return [
+            list([]) as list<operation>,
+            {
+                ...store,
+                proposals: new_proposals,
+                proposal_counter: store.proposal_counter + (1 as nat)
+            }
+        ];
+    };
+
+    @entry
+    const approve = (proposal_id: nat, store: storage): return_ => {
+        // Check if sender is a signer
+        if (!is_signer(Tezos.get_sender(), store)) {
+            return failwith("Not authorized") as return_;
+        }
+
+        // Get proposal
+        const proposal = get_proposal(proposal_id, store);
+
+        // Check if already executed
+        if (proposal.executed) {
+            return failwith("Proposal already executed") as return_;
+        }
+
+        // Add approval
+        const new_approvals = Set.add(Tezos.get_sender(), proposal.approvals);
+        const updated_proposal = {...proposal, approvals: new_approvals};
+        const new_proposals = Map.update(
+            proposal_id,
+            Some(updated_proposal),
+            store.proposals
+        );
+
+        return [
+            list([]) as list<operation>,
+            {...store, proposals: new_proposals}
+        ];
+    };
+
+    @entry
+    const execute = (proposal_id: nat, store: storage): return_ => {
+        // Get proposal
+        const proposal = get_proposal(proposal_id, store);
+
+        // Check if already executed
+        if (proposal.executed) {
+            return failwith("Proposal already executed") as return_;
+        }
+
+        // Check threshold
+        if (Set.size(proposal.approvals) < store.threshold) {
+            return failwith("Not enough approvals") as return_;
+        }
+
+        // Check contract balance
+        if (Tezos.Next.get_balance() < proposal.amount) {
+            return failwith("Insufficient balance") as return_;
+        }
+
+        // Create transfer operation
+        const transfer_op = Tezos.Next.Operation.transaction(
+            unit,
+            proposal.amount,
+            Tezos.Next.get_contract_with_error(
+                proposal.destination,
+                "Invalid destination"
+            )
+        );
+
+        // Mark proposal as executed
+        const executed_proposal = {...proposal, executed: true};
+        const new_proposals = Map.update(
+            proposal_id,
+            Some(executed_proposal),
+            store.proposals
+        );
+
+    return [
+            list([transfer_op]),
+            {...store, proposals: new_proposals}
+        ];
+    };
+
+    // Initialize storage with three signers
+    export type init_param = {
+        signer1: address,
+        signer2: address,
+        signer3: address
+    };
+
+    // @init
+    // export const init = (param: init_param): storage => {
+    //     return {
+    //         signers: Set.literal([param.signer1, param.signer2, param.signer3]),
+    //         threshold: 2 as nat,
+    //         proposals: Map.empty as map<nat, proposal>,
+    //         proposal_counter: 0 as nat
+    //     };
+    // };
+
+
+}
