@@ -39,8 +39,7 @@
     "environments": {
         "development": {
             "type": "flextesa",
-            "label": "Local Tezos Sandbox",
-            "rpcUrl": "http://localhost:20001"
+            "label": "Local Tezos Sandbox"
         },
         "testing": {
             "type": "simple",
@@ -69,10 +68,6 @@
         {
             "type": "npm",
             "name": "@taqueria/plugin-taquito"
-        },
-        {
-            "type": "npm",
-            "name": "@taqueria/plugin-jest"
         }
     ]
 }

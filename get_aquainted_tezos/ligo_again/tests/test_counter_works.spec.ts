@@ -1,34 +1,38 @@
 import { RpcClient } from '@taquito/rpc';
 import { InMemorySigner } from '@taquito/signer';
 import { TezosToolkit, Contract } from '@taquito/taquito';
-import {getConfigV2, V2} from "@taqueria/toolkit"
+// import {getConfigV2, V2} from "@taqueria/toolkit"
 // import {getEnv} from "@taqueria/toolkit/lib/env"
 import { err, log, stringify, warn } from './test-helpers';
 import {path} from 'rambda'
 import fetch from 'node-fetch'
 import { exec } from 'child_process'
-import { describe, test, expect, beforeAll } from '@jest/globals';
+// import { describe, test, expect, beforeAll } from '@jest/globals';
 
 
 
 const getTaqueriaConfig = async (envname: 'development' | 'testing') => {
-    const config = await getConfigV2(process.env)
+    // const config = await getConfigV2(process.env)
+
+
+    let flextesa_uri = "http://localhost:20001"
+    let alice_sk = "edsk3QoqBuvdamxouPhin7swCvkQNgq4jP5KZPbwWNnwdZpSpJiEbq"
 
 
     if (envname == "development") {
-        const devEnv = V2.getEnv("development", config)
-        const alice_sk = String(path('accounts.alice.secretKey', devEnv)).replace('unencrypted:', '')
-        const flextesa_uri = devEnv['rpcUrl'] as string
+        // const devEnv = V2.getEnv("development", config)
+        // const alice_sk = String(path('accounts.alice.secretKey', devEnv)).replace('unencrypted:', '')
+        // const flextesa_uri = devEnv['rpcUrl'] as string
         const Tezos = new TezosToolkit(flextesa_uri)
         const admin_signer = new InMemorySigner(alice_sk);
         Tezos.setSignerProvider(admin_signer);
 
         return {
             flextesa_uri,
-            alice: String(path('accounts.alice.publicKeyHash', devEnv)),
+            alice: "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
             alice_sk: alice_sk,
-            joe: String(path('accounts.joe.publicKeyHash', devEnv)),
-            counter: V2.getContractAddress('Counter', devEnv)!,
+            joe: "tz1MVGjgD1YtAPwohsSfk8i3ZiT1yEGM2YXB",
+            counter: "KT1FnUuHzgH4crt2FgtVcEfjz5QSBgfuUgYV",
             Tezos,
             admin_signer
         }
