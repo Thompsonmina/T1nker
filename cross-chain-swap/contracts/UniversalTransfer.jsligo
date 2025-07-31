@@ -1,0 +1,60 @@
+// A contract demonstrating a unified transfer function.
+export namespace UniversalTransfer {
+
+    // First, we need to define the types required for an FA2 transfer call.
+    // These are standardized by TZIP-12.
+    type fa2_transfer_destination = {
+        to_: address,
+        token_id: nat,
+        amount: nat
+    };
+
+    type fa2_transfer = {
+        from_: address,
+        txs: list<fa2_transfer_destination>
+    };
+
+    // The parameter type for the FA2 contract's `transfer` entrypoint.
+    type fa2_parameter = list<fa2_transfer>;
+
+    // Our universal transfer helper function.
+    // It takes an optional address. None means Tez, Some(addr) means FA2.
+    export const uniTransfer = (token_opt: option<address>, from_: address, to_: address, amount: nat): operation => {
+        
+        // We use a match statement to handle the two cases.
+        return match(token_opt) {
+            // Case 1: This is a native Tez transfer
+            when (None()): do {
+                // We need a handle to the recipient's address to send Tez.
+                // The `contract<unit>` type is for any address that can receive Tez.
+                const recipient: contract<unit> = Tezos.Next.get_contract_with_error(
+                    to_, "Invalid destination address for Tez transfer"
+                );
+                // Create a standard Tez transaction. The amount is automatically treated as mutez.
+                return Tezos.Next.Operation.transaction(unit, amount * 1mutez, recipient);
+            };
+            // Case 2: This is an FA2 token transfer
+            when (Some(fa2_address)): do {
+                // Construct the parameter for the FA2 `transfer` call.
+                const params: fa2_parameter = [{
+                    from_: from_, // The address that granted us operator status
+                    txs: [{
+                        to_: to_,
+                        token_id: 0n, // Assuming a standard fungible token with id 0
+                        amount: amount
+                    }]
+                }];
+
+                // Get a typed handle to the FA2 contract's `%transfer` entrypoint.
+                const fa2_contract: contract<fa2_parameter> = Tezos.Next.get_entrypoint("%transfer", fa2_address);
+                
+                // Create the transaction. We are sending 0 Tez TO the FA2 contract,
+                // but telling it to perform the token transfer via the `params`.
+                return Tezos.transaction(params, 0 as tez, fa2_contract);
+            }
+        }
+    };
+
+    
+}
+

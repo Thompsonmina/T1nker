@@ -1,0 +1,25 @@
+// #import "TimeLocksLib.jsligo"  "TimeLocksLib"
+
+// export interface IBaseEscrow {
+    
+//     type immutables = {
+//         orderHash: bytes,
+//         hashlock: bytes,
+//         maker: address,
+//         taker: address,
+//         token: address,
+//         amount: nat,
+//         safetyDeposit: nat,
+//         timelocks: TimeLocksLib.TimeLocksLib.Timelocks
+//     };
+
+    
+
+//     // const rescueDelay: () => int;
+//     // const factory: () => address;
+
+//     // const withdraw: (secret: bytes, immutables: immutables) => unit;
+//     // const cancel: (immutables: immutables) => unit;
+//     // const rescue: (token: address, immutables: immutables) => unit; 
+
+// }

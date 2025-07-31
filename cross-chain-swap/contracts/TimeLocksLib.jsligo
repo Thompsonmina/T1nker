@@ -1,0 +1,19 @@
+export namespace TimeLocksLib {
+    // Minimal timelock implementation using records for timestamp tracking
+    // Records used instead of bitwise ops since nats don't support them
+    // todo: figure out if it can be done with the binary type in LIGO
+    export type Timelocks = {
+        deployedAt: timestamp,
+        srcWithdrawal: timestamp,
+        srcPublicWithdrawal: timestamp,
+        srcCancellation: timestamp,
+        srcPublicCancellation: timestamp,
+        dstWithdrawal: timestamp,
+        dstPublicWithdrawal: timestamp,
+        dstCancellation: timestamp,
+    };
+
+    export const rescueStart = (timelocks: Timelocks, rescueDelay: int): timestamp => {
+        return timelocks.deployedAt + rescueDelay;
+    }
+}
