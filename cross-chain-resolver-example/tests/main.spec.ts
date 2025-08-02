@@ -6,7 +6,9 @@ import {anvil} from 'prool/instances'
 
 
 import Sdk from '@1inch/cross-chain-sdk'
-import {HashLock, TimeLocks} from '@1inch/cross-chain-sdk'
+import { HashLock, TimeLocks } from '@1inch/cross-chain-sdk'
+
+
 import {
     computeAddress,
     ContractFactory,
@@ -139,7 +141,7 @@ describe('Resolving example', () => {
             console.log('ze secret', secret)
             const hashLock = Sdk.HashLock.forSingleFill(secret)
             console.log('ze hashLock', hashLock)
-
+            
             const order = Sdk.CrossChainOrder.new(
                 new Address(src.escrowFactory),
                 {
@@ -163,7 +165,7 @@ describe('Resolving example', () => {
                         dstCancellation: 101n // 1sec public withdrawal
                     }),
                     srcChainId,
-                    99989291,
+                    dstChainId,
                     srcSafetyDeposit: parseEther('0.001'),
                     dstSafetyDeposit: parseEther('0.001')
                 },
