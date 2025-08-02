@@ -14,7 +14,7 @@ import { Timelocks } from "../libraries/TimelocksLib.sol";
 interface IBaseEscrow {
     struct Immutables {
         bytes32 orderHash;
-        bytes32 hashlock;  // Hash of the secret.
+        bytes32 hashlock;  // -Hash of the secret.
         Address maker;
         Address taker;
         Address token;
@@ -40,6 +40,7 @@ interface IBaseEscrow {
      * @param secret The secret that unlocks the escrow.
      */
     event Withdrawal(bytes32 secret);
+    
 
     error InvalidCaller();
     error InvalidImmutables();
