@@ -57,6 +57,7 @@ export namespace UniversalTransfer {
 
 
    
+    // commented, uncomment for testing
     // export type transfer_params = {
     //     token_opt: option<address>,
     //     from_: address,

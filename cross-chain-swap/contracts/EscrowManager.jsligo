@@ -1,5 +1,5 @@
-#import "Immutables.jsligo" "Immutables"
-#import "UniversalTransfer.jsligo" "UniversalTransfer"
+#import "./libraries/Immutables.jsligo" "Immutables"
+#import "./libraries/UniversalTransfer.jsligo" "UniversalTransfer"
 #import "BaseEscrow.jsligo" "BaseEscrow"
 
 
@@ -36,6 +36,14 @@ export namespace EscrowManager {
         rescue_delay: int,
         src_cancellation_timestamp: timestamp
     }
+
+    type rescue_funds_param = {
+        immutables: Immutables.Immutables.immutables,
+        rescueDelay: int,
+        token_opt: option<address>,
+        amount: nat
+    };
+
 
      // Events 
     type escrow_src_created_event = {
@@ -409,13 +417,7 @@ export namespace EscrowManager {
         }
     }
     
-    type rescue_funds_param = {
-        immutables: Immutables.Immutables.immutables,
-        rescueDelay: int,
-        token_opt: option<address>,
-        amount: nat
-    };
-
+    
     
 
     const _rescueFunds = (param: rescue_funds_param, escrow_map: escrow_map): list<operation> => {

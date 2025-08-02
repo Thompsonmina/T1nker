@@ -1,6 +1,6 @@
-#import "Immutables.jsligo" "Immutables"
-#import "TimeLocksLib.jsligo" "TimeLocksLib"
-#import "UniversalTransfer.jsligo" "UniversalTransfer"
+#import "./libraries/Immutables.jsligo" "Immutables"
+#import "./libraries/TimeLocksLib.jsligo" "TimeLocksLib"
+#import "./libraries/UniversalTransfer.jsligo" "UniversalTransfer"
 
 // implements IBaseEscrow
 export namespace BaseEscrow  {
@@ -81,16 +81,6 @@ export namespace BaseEscrow  {
     //     const result: bool = Crypto.keccak(params.secret) == params.hashlock;
     //     return [list([]), result];
     // }
-
-
-    // @view
-    // const is_valid_secret = (params: validSecretParams, _store: unit): bool => {
-    //     const hash = Crypto.keccak(params.secret);
-    //     return hash == params.hashlock;
-    //     };
-
-    
-    
     
 }
 
