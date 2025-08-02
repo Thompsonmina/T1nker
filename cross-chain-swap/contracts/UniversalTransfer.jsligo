@@ -57,23 +57,23 @@ export namespace UniversalTransfer {
 
 
    
-    export type transfer_params = {
-        token_opt: option<address>,
-        from_: address,
-        to_: address,
-        amount: nat
-    }
+    // export type transfer_params = {
+    //     token_opt: option<address>,
+    //     from_: address,
+    //     to_: address,
+    //     amount: nat
+    // }
 
-    @entry
-    const transfer = (params: transfer_params, _storage: unit): [list<operation>, unit] => {
-        return [list([uniTransfer(params.token_opt, params.from_, params.to_, params.amount)]), unit];
-    };
+    // @entry
+    // const transfer = (params: transfer_params, _storage: unit): [list<operation>, unit] => {
+    //     return [list([uniTransfer(params.token_opt, params.from_, params.to_, params.amount)]), unit];
+    // };
 
-    // Dummy entrypoint for testing purposes
-    @entry
-    const dummy = (_params: unit, _storage: unit): [list<operation>, unit] => {
-        return [list([]), unit];
-    };
+    // // Dummy entrypoint for testing purposes
+    // @entry
+    // const dummy = (_params: unit, _storage: unit): [list<operation>, unit] => {
+    //     return [list([]), unit];
+    // };
     
 }
 

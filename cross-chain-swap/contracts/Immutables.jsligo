@@ -7,9 +7,9 @@ export namespace Immutables {
     export type immutables = {
         orderHash: bytes,
         hashlock: bytes,
-        maker: address,
-        taker: address,
-        token: address,
+        maker: option<address>,
+        taker: option<address>,
+        token: option<address>,
         amount: nat,
         safetyDeposit: nat,
         timelocks: TimeLocksLib.TimeLocksLib.Timelocks

@@ -1,0 +1,123 @@
+#import "Immutables.jsligo" "Immutables"
+#import "UniversalTransfer.jsligo" "UniversalTransfer"
+#import "BaseEscrow.jsligo" "BaseEscrow"
+
+
+
+export namespace EscrowManager {
+
+    
+    
+    // type escrow_maps:
+    //  big_map<BaseEscrow.BaseEscrow.unique_escrow_id, BaseEscrow.BaseEscrow.escrow_state>; // escrow address
+
+    type escrow_content = {
+        escrow_state: BaseEscrow.BaseEscrow.escrow_state,
+        escrow_type: BaseEscrow.BaseEscrow.escrow_type
+    }
+    type escrow_map =
+    big_map<BaseEscrow.BaseEscrow.immutables_hash, escrow_content>;
+
+    type escrow_src_created_event = {
+        immutables: Immutables.Immutables.immutables,
+    };
+
+    type storage = {
+        escrow_map: escrow_map
+    }
+    type return_type = [list<operation>, storage];
+
+    type create_src_params = {
+        immutables: Immutables.Immutables.immutables
+    }
+
+    const escrow_is_active = (escrow_map: escrow_map, escrow_id: BaseEscrow.BaseEscrow.immutables_hash): bool => {
+
+        const escrow_content_opt: option<escrow_content> = Big_map.find_opt (escrow_id, escrow_map);
+
+        return match(escrow_content_opt) {
+            when(Some({escrow_state, escrow_type})): do {
+                match(escrow_state) {
+                    when(Active): true
+                    when(_): false
+                }
+            }
+            when(None): failwith("No Escrows exist that match the immutables hash")
+        }
+    }
+
+    const onlyValidImmutables = (im: Immutables.Immutables.immutables, escrow_map: escrow_map): unit => {
+        
+        const escrow_id: BaseEscrow.BaseEscrow.immutables_hash = Immutables.Immutables.hash(im);
+        const is_active: bool = escrow_is_active(escrow_map, escrow_id);
+
+        if (!is_active) {
+            failwith("No Active Escrows exist that match the immutables hash");
+        }
+    
+    }
+
+
+
+    
+    
+
+    const createSrcEscrow = (params: create_src_params, store: storage): return_type => {
+        
+        const immutables_hash: bytes = Immutables.Immutables.hash(params.immutables);
+
+        const escrow_state: BaseEscrow.BaseEscrow.escrow_state = Active();
+        const escrow_type: BaseEscrow.BaseEscrow.escrow_type = Source();
+
+        const new_escrow_map: escrow_map = Big_map.add(immutables_hash, {escrow_state, escrow_type}, store.escrow_map);
+        const new_store: storage = {escrow_map: new_escrow_map};
+
+        const tez_sent: bool =  match(params.immutables.token) {
+            when(Some(token)): do {
+                // If the token is an fa2(erc20) the contract needs to be approved
+                return false
+            }
+            when(None): do {
+                // check that the appropiate amount of tez is sent
+                const tez_amount: tez = params.immutables.amount * 1mutez;
+                const tez_sent: tez = Tezos.get_amount();
+                if (tez_sent != tez_amount) {
+                    failwith("Incorrect amount of tez sent");
+                }
+                return true
+            }
+        }
+        
+         const escrow_src_created_event: escrow_src_created_event = {
+            immutables: params.immutables
+        };
+
+        // 6. Create the Event Operation
+        // We use a tag that clearly identifies the event, as per convention.
+        const event_op: operation = Tezos.Next.Operation.emit("%EscrowSrcCreated", escrow_src_created_event);
+        
+
+        if (!tez_sent) {
+            // If the token is an fa2(erc20) the contract needs to be approved to send the token
+            // to itself
+            const transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+                params.immutables.token,
+                Tezos.get_sender(), // The maker sends the token on escrow creation
+                Tezos.get_self_address(),
+                params.immutables.amount
+            );
+
+            return [list([transfer_op, event_op]), new_store];
+        }
+        // maker sends funds to escrow and then contract broadcasts escrow creation
+        return [list([event_op]), new_store];
+    }
+
+
+
+
+
+
+
+
+} 
