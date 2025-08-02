@@ -20,13 +20,6 @@ export namespace EscrowManager {
     type escrow_map =
     big_map<BaseEscrow.BaseEscrow.immutables_hash, escrow_content>;
 
-    type escrow_src_created_event = {
-        immutables: Immutables.Immutables.immutables,
-    };
-
-    type escrow_dst_created_event = {
-        immutables: Immutables.Immutables.immutables,
-    };
 
     type storage = {
         escrow_map: escrow_map
@@ -43,6 +36,29 @@ export namespace EscrowManager {
         rescue_delay: int,
         src_cancellation_timestamp: timestamp
     }
+
+     // Events 
+    type escrow_src_created_event = {
+        immutables: Immutables.Immutables.immutables,
+    };
+
+    type escrow_dst_created_event = {
+        immutables: Immutables.Immutables.immutables,
+    };
+
+    type escrow_withdraw_event = {
+        secret: bytes,
+    };
+
+    type escrow_cancel_event = unit
+
+
+    // rescueFunds event payload
+    type funds_rescued_event = {
+        rescued_by: address,
+        token_rescued: option<address>,
+        amount_rescued: nat
+    };
 
     
     const escrow_exists_and_is_active = (escrow_map: escrow_map, escrow_id: BaseEscrow.BaseEscrow.immutables_hash): bool => {
@@ -74,7 +90,7 @@ export namespace EscrowManager {
 
 
 
-    namespace EscrowSrcOperations {
+    export namespace EscrowSrcOperations {
 
         const _src_withdraw_to = (params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): list<operation> => {
         
@@ -97,10 +113,17 @@ export namespace EscrowManager {
                 params.immutables.safetyDeposit
             );
 
-            return list([token_transfer_op, safety_deposit_transfer_op]);
+            const escrow_withdraw_event: escrow_withdraw_event = {
+                secret: params.secret,
+            };
+
+            const event_op: operation = Tezos.Next.Operation.emit("%EscrowWithdrawSrc", escrow_withdraw_event);
+
+            return list([token_transfer_op, safety_deposit_transfer_op, event_op]);
         }
         
-        const src_withdraw_to = (params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        
+        export const src_withdraw_to = (params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
 
             BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcWithdrawal);
@@ -110,7 +133,7 @@ export namespace EscrowManager {
             return [ops, {escrow_map}];
         }
 
-        const src_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        export const src_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
         
 
             BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
@@ -126,7 +149,7 @@ export namespace EscrowManager {
             
         }
 
-        const src_public_withdraw = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        export const src_public_withdraw = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
             
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcPublicWithdrawal);
             BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.srcCancellation);
@@ -158,9 +181,15 @@ export namespace EscrowManager {
                 Tezos.get_sender(),
                 params.immutables.safetyDeposit
             );
+
+            const escrow_cancel_event: escrow_cancel_event = {};
+
+            const event_op: operation = Tezos.Next.Operation.emit("%EscrowCancelSrc", escrow_cancel_event);
+
+            return list([token_transfer_op, safety_deposit_transfer_op, event_op]);
         }
 
-        const src_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        export const src_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
 
             BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcCancellation);
@@ -169,17 +198,16 @@ export namespace EscrowManager {
             return [ops, {escrow_map}];
         }
 
-        const src_public_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        export const src_public_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
 
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcPublicCancellation);
 
             const ops: list<operation> = _src_cancel(params, escrow_map);
             return [ops, {escrow_map}];
         }
-
     }
 
-    namespace EscrowDstOperations {
+    export namespace EscrowDstOperations {
 
         const _dst_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): list<operation> => {
 
@@ -207,7 +235,7 @@ export namespace EscrowManager {
             return list([token_transfer_op, safety_deposit_transfer_op]);
         }
 
-        const dst_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        export const dst_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
 
             BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.dstWithdrawal);
@@ -217,7 +245,7 @@ export namespace EscrowManager {
             return [ops, {escrow_map}];
         }
 
-        const dst_public_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables }, escrow_map: escrow_map): return_type => {
+        export const dst_public_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables }, escrow_map: escrow_map): return_type => {
 
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.dstPublicWithdrawal);
             BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.dstCancellation);
@@ -226,7 +254,7 @@ export namespace EscrowManager {
             return [ops, {escrow_map}];
         }
 
-        const dst_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        export const dst_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
 
             BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
             onlyValidImmutables(params.immutables, escrow_map);
@@ -388,19 +416,14 @@ export namespace EscrowManager {
         amount: nat
     };
 
-    // rescueFunds event payload
-    type funds_rescued_event = {
-        rescued_by: address,
-        token_rescued: option<address>,
-        amount_rescued: nat
-    };
+    
 
-    const rescueFunds = (param: rescue_funds_param): list<operation> => {
+    const _rescueFunds = (param: rescue_funds_param, escrow_map: escrow_map): list<operation> => {
         // 1. Modifier equivalent: onlyTaker
         BaseEscrow.BaseEscrow.onlyTaker(param.immutables);
 
         // 2. Modifier equivalent: onlyValidImmutables
-        // onlyValidImmutables(s.immutables);
+        onlyValidImmutables(param.immutables, escrow_map);
 
         // 3. Modifier equivalent: onlyAfter
         const rescueStartTime: timestamp = param.immutables.timelocks.deployedAt + param.rescueDelay;      
@@ -425,18 +448,63 @@ export namespace EscrowManager {
         
         // 7. Return BOTH operations in a list
         return list([transfer_op, event_op]);
-    };
-
-
-    @entry
-    const createSrcEscrow = (params: create_src_params): return_type => {
-        return _createSrcEscrow(params, store);
     }
 
 
+    @entry
+    const createSrcEscrow = (params: create_src_params, store: storage): return_type => {
+        return _createSrcEscrow(params, store);
+    }
+
+    @entry
+    const createDstEscrow = (params: create_dst_params, store: storage): return_type => {
+        return _createDstEscrow(params, store);
+    }
+
+    @entry
+    const rescueFunds = (params: rescue_funds_param, store:storage): return_type => {
+        const ops = _rescueFunds(params, store.escrow_map);
+        return [ops, store]
+    }
+
+    @entry
+    const srcWithdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
+        return EscrowSrcOperations.src_withdraw(params, store.escrow_map);
+        
+    }
+
+    @entry
+    const srcWithdrawTo = (params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
+        return EscrowSrcOperations.src_withdraw_to(params, store.escrow_map);
+    }
+
+    @entry
+    const srcPublicWithdraw = (params: {immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
+        return EscrowSrcOperations.src_public_withdraw(params, store.escrow_map);
+    }
+
+    @entry
+    const srcCancel = (params: {immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
+        return EscrowSrcOperations.src_cancel(params, store.escrow_map);
+
+    }
+
+    @entry
+    const dstWithdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
+        return EscrowDstOperations.dst_withdraw(params, store.escrow_map);
+    }
+    
+    @entry
+    const dstPublicWithdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
+        return EscrowDstOperations.dst_public_withdraw(params, store.escrow_map);
+    }
+
+    @entry
+    const dstCancel = (params: {immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
+        return EscrowDstOperations.dst_cancel(params, store.escrow_map);
+    }
+    
+    
 
 
-
-
-
-} 
+}

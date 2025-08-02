@@ -26,17 +26,10 @@ export namespace BaseEscrow  {
 
     
     export const onlyTaker = (im: Immutables.Immutables.immutables) : unit => {
-        
-        return match(im.taker)
-        {
-            when(Some(taker)): do {
-                if (Tezos.get_sender() != taker) {
-                    failwith("NOT_TAKER");   // abort the transaction
-                };
-            }
-            when(None) : failwith("NO_TAKER_SET")
-               // abort the transaction
+        if (Tezos.get_sender() != im.taker) {
+            failwith("NOT_TAKER");   // abort the transaction
         };
+          
     };
 
     
@@ -68,40 +61,6 @@ export namespace BaseEscrow  {
     const uniTransfer = (token_opt: option<address>, from_: address, to_: address, amountNat: nat): operation => {
         return UniversalTransfer.UniversalTransfer.uniTransfer(token_opt, from_, to_, amountNat);
     }
-
-    const rescueFunds = (param: rescue_funds_param): list<operation> => {
-        // 1. Modifier equivalent: onlyTaker
-        onlyTaker(param.immutables);
-
-        // 2. Modifier equivalent: onlyValidImmutables
-        // onlyValidImmutables(s.immutables);
-
-        // 3. Modifier equivalent: onlyAfter
-        const rescueStartTime: timestamp = param.immutables.timelocks.deployedAt + param.rescueDelay;      
-        onlyAfter(rescueStartTime);
-
-        // 4. Main logic: Create the transfer operation
-        const transfer_op: operation = uniTransfer(
-            param.token_opt,
-            Tezos.get_self_address(), // from: this contract
-            Tezos.get_sender(),       // to: the taker who called this function
-            param.amount
-        );
-
-        // 5. Create the Event Payload
-        const event_payload: funds_rescued_event = {
-            rescued_by: Tezos.get_sender(),
-            token_rescued: param.token_opt,
-            amount_rescued: param.amount
-        };
-
-        // 6. Create the Event Operation
-        // We use a tag that clearly identifies the event, as per convention.
-        const event_op: operation = Tezos.Next.Operation.emit("%FundsRescued", event_payload);
-        
-        // 7. Return BOTH operations in a list
-        return list([transfer_op, event_op]);
-    };
 
 
     
