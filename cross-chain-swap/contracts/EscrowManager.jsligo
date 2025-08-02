@@ -31,7 +31,7 @@ export namespace EscrowManager {
         immutables: Immutables.Immutables.immutables
     }
 
-    const escrow_is_active = (escrow_map: escrow_map, escrow_id: BaseEscrow.BaseEscrow.immutables_hash): bool => {
+    const escrow_exists_and_is_active = (escrow_map: escrow_map, escrow_id: BaseEscrow.BaseEscrow.immutables_hash): bool => {
 
         const escrow_content_opt: option<escrow_content> = Big_map.find_opt (escrow_id, escrow_map);
 
@@ -48,8 +48,9 @@ export namespace EscrowManager {
 
     const onlyValidImmutables = (im: Immutables.Immutables.immutables, escrow_map: escrow_map): unit => {
         
+        // escrow hash here is the hash of the immutables
         const escrow_id: BaseEscrow.BaseEscrow.immutables_hash = Immutables.Immutables.hash(im);
-        const is_active: bool = escrow_is_active(escrow_map, escrow_id);
+        const is_active: bool = escrow_exists_and_is_active(escrow_map, escrow_id);
 
         if (!is_active) {
             failwith("No Active Escrows exist that match the immutables hash");
@@ -57,6 +58,106 @@ export namespace EscrowManager {
     
     }
 
+    const _src_withdraw_to = (params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): list<operation> => {
+        
+        
+        BaseEscrow.BaseEscrow.onlyValidSecret(params.secret, params.immutables);
+        onlyValidImmutables(params.immutables, escrow_map);
+
+        // sends back the token to the target (tez or fa2)
+        const token_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+            params.immutables.token,
+            Tezos.get_self_address(),
+            params.target,
+            params.immutables.amount
+        );
+
+        // sends back the safety deposit to the taker
+        const safety_deposit_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+            None(),
+            Tezos.get_self_address(),
+            Tezos.get_sender(),
+            params.immutables.safetyDeposit
+        );
+
+        return list([token_transfer_op, safety_deposit_transfer_op]);
+    }
+    
+    const src_withdraw_to = (params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+    
+        const immutables_hash: bytes = Immutables.Immutables.hash(params.immutables);
+
+        BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
+        BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcWithdrawal);
+        BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.srcCancellation);
+        
+        const ops: list<operation> = _src_withdraw_to(params, escrow_map);
+        return [ops, {escrow_map}];
+    }
+
+    const src_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        
+        const immutables_hash: bytes = Immutables.Immutables.hash(params.immutables);
+
+        BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
+        BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcWithdrawal);
+        BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.srcCancellation);
+        
+        const ops: list<operation> = _src_withdraw_to({...params, target: Tezos.get_sender()}, escrow_map);
+
+        return [ops, {escrow_map}];
+        // emit Withdrawal(secret);
+        
+    }
+
+    const src_public_withdraw = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+         
+        BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcPublicWithdrawal);
+        BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.srcCancellation);
+
+        const ops: list<operation> = _src_withdraw_to({...params, target: Tezos.get_sender()}, escrow_map);
+
+        return [ops, {escrow_map}];    
+
+    }
+
+    const _src_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): list<operation> => {
+    
+        onlyValidImmutables(params.immutables, escrow_map);
+
+        // sends back the token to the target (tez or fa2)
+        const token_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+            params.immutables.token,
+            Tezos.get_self_address(),
+            params.immutables.maker,
+            params.immutables.amount
+        );
+
+        // sends back the safety deposit to the person who cancelled the escrow
+        const safety_deposit_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+            None(),
+            Tezos.get_self_address(),
+            Tezos.get_sender(),
+            params.immutables.safetyDeposit
+        );
+    }
+
+    const src_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+
+        BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
+        BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcCancellation);
+
+        const ops: list<operation> = _src_cancel(params, escrow_map);
+        return [ops, {escrow_map}];
+    }
+
+    const src_public_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+
+        BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcPublicCancellation);
+
+        const ops: list<operation> = _src_cancel(params, escrow_map);
+        return [ops, {escrow_map}];
+    }
 
 
     

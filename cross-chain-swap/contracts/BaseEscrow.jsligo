@@ -25,7 +25,7 @@ export namespace BaseEscrow  {
     };
 
     
-    const onlyTaker = (im: Immutables.Immutables.immutables) : unit => {
+    export const onlyTaker = (im: Immutables.Immutables.immutables) : unit => {
         
         return match(im.taker)
         {
@@ -39,33 +39,20 @@ export namespace BaseEscrow  {
         };
     };
 
-    // const onlyValidImmutables = (im: Immutables.Immutables.immutables) : unit => {
-    //     // todo: implement
-    // }
-
-    // modifier onlyValidImmutables(Immutables calldata immutables) virtual {
-    //     _validateImmutables(immutables);
-    //     _;
-    // }
-
-    // /**
-    //  * @dev Should verify that the computed escrow address matches the address of this contract.
-    //  */
-    // function _validateImmutables(Immutables calldata immutables) internal view virtual;
-
-    const onlyValidSecret = (secret: bytes, immutables: Immutables.Immutables.immutables) : unit => {
+    
+    export const onlyValidSecret = (secret: bytes, immutables: Immutables.Immutables.immutables) : unit => {
         if (Crypto.keccak(secret) != immutables.hashlock) {
             failwith("INVALID_SECRET");
         };
     }
 
-    const onlyAfter = (start: timestamp) : unit => {
+    export const onlyAfter = (start: timestamp) : unit => {
         if (Tezos.get_now() < start) {
             failwith("INVALID_TIME");
         };
     }
         
-    const onlyBefore = (stop: timestamp) : unit => {
+    export const onlyBefore = (stop: timestamp) : unit => {
         if (Tezos.get_now() >= stop) {
             failwith("INVALID_TIME");
         };
