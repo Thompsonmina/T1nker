@@ -50,11 +50,30 @@ export namespace UniversalTransfer {
                 
                 // Create the transaction. We are sending 0 Tez TO the FA2 contract,
                 // but telling it to perform the token transfer via the `params`.
-                return Tezos.transaction(params, 0 as tez, fa2_contract);
+                return Tezos.Next.Operation.transaction(params, 0 as tez, fa2_contract);
             }
         }
     };
 
+
+   
+    export type transfer_params = {
+        token_opt: option<address>,
+        from_: address,
+        to_: address,
+        amount: nat
+    }
+
+    @entry
+    const transfer = (params: transfer_params, _storage: unit): [list<operation>, unit] => {
+        return [list([uniTransfer(params.token_opt, params.from_, params.to_, params.amount)]), unit];
+    };
+
+    // Dummy entrypoint for testing purposes
+    @entry
+    const dummy = (_params: unit, _storage: unit): [list<operation>, unit] => {
+        return [list([]), unit];
+    };
     
 }
 

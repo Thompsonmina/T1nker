@@ -60,6 +60,13 @@ export namespace BaseEscrow  {
         };
     }
 
+    // Checks if a secret matches the hashlock by comparing their keccak hashes
+    const isValidSecret = (secret: bytes, hashlock: bytes): bool => {
+        return Crypto.keccak(secret) == hashlock;
+    }
+
+    
+
     const uniTransfer = (token_opt: option<address>, from_: address, to_: address, amountNat: nat): operation => {
         return UniversalTransfer.UniversalTransfer.uniTransfer(token_opt, from_, to_, amountNat);
     }
@@ -100,10 +107,30 @@ export namespace BaseEscrow  {
 
 
     
-    @entry
-    const dummy = (_ : unit, s : unit) : [list<operation>, unit] => {
-        return [list([]), unit]
+    // @entry
+    // const dummy = (_ : unit, s : unit) : [list<operation>, unit] => {
+    //     return [list([]), unit]
+    // }
+
+    type validSecretParams = {
+        secret: bytes,
+        hashlock: bytes
     }
+
+    @entry
+    const isvalidSecretEntry = (params: validSecretParams, storage: bool): [list<operation>, bool] => {
+        
+        // Check if secret matches hashlock by comparing keccak hashes
+        const result: bool = Crypto.keccak(params.secret) == params.hashlock;
+        return [list([]), result];
+    }
+
+
+    // @view
+    // const is_valid_secret = (params: validSecretParams, _store: unit): bool => {
+    //     const hash = Crypto.keccak(params.secret);
+    //     return hash == params.hashlock;
+    //     };
 
     
     

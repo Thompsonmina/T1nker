@@ -1,0 +1,13 @@
+#import "UniversalTransfer.jsligo" "Contract"
+
+// When this file was created, the smart contract was defined with an entrypoint using `@entry` that was within a namespace. As such, the examples below are written with that assumption in mind.
+
+// IMPORTANT: We suggest always explicitly typing your parameter values:
+// E.g.: `const parameter: int = 10` or `const parameter: Contract.[Namespace].parameter = 10`
+
+const parameter1: {token_opt: option<address>, from_: address, to_: address, amount: nat} =
+ {  token_opt : None(),                                            // <-- native ꜩ
+  from_     : "tz1Ys4iNA8odKJVBysTaZyQidvcHMKLTxvud",
+  to_       : "tz1cPwxzsVciajsGHdbUYKqsCVVCKx3yK2sG",
+  amount    : 2_000_000n                                         // 2 ꜩ
+} 
