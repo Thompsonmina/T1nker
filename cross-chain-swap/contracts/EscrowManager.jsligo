@@ -13,8 +13,10 @@ export namespace EscrowManager {
 
     type escrow_content = {
         escrow_state: BaseEscrow.BaseEscrow.escrow_state,
-        escrow_type: BaseEscrow.BaseEscrow.escrow_type
+        escrow_type: BaseEscrow.BaseEscrow.escrow_type,
+        rescue_delay: int
     }
+    
     type escrow_map =
     big_map<BaseEscrow.BaseEscrow.immutables_hash, escrow_content>;
 
@@ -32,11 +34,13 @@ export namespace EscrowManager {
     type return_type = [list<operation>, storage];
 
     type create_src_params = {
-        immutables: Immutables.Immutables.immutables
+        immutables: Immutables.Immutables.immutables,
+        rescue_delay: int
     }
 
     type create_dst_params = {
         immutables: Immutables.Immutables.immutables,
+        rescue_delay: int,
         src_cancellation_timestamp: timestamp
     }
 
@@ -248,14 +252,16 @@ export namespace EscrowManager {
     }
 
 
-    const createSrcEscrow = (params: create_src_params, store: storage): return_type => {
+    const _createSrcEscrow = (params: create_src_params, store: storage): return_type => {
         
         const immutables_hash: bytes = Immutables.Immutables.hash(params.immutables);
 
         const escrow_state: BaseEscrow.BaseEscrow.escrow_state = Active();
         const escrow_type: BaseEscrow.BaseEscrow.escrow_type = Source();
 
-        const new_escrow_map: escrow_map = Big_map.add(immutables_hash, {escrow_state, escrow_type}, store.escrow_map);
+        
+        const rescue_delay: int = params.rescue_delay;
+        const new_escrow_map: escrow_map = Big_map.add(immutables_hash, {escrow_state, escrow_type, rescue_delay}, store.escrow_map);
         const new_store: storage = {escrow_map: new_escrow_map};
 
         const tez_sent: bool =  match(params.immutables.token) {
@@ -299,7 +305,7 @@ export namespace EscrowManager {
         return [list([event_op]), new_store];
     }
 
-    const createDstEscrow = (params: create_dst_params, store: storage): return_type => {
+    const _createDstEscrow = (params: create_dst_params, store: storage): return_type => {
 
         // check that safety deposit is sent
         // then check if the amount to be escrowed is tez or fa2
@@ -349,7 +355,9 @@ export namespace EscrowManager {
         const escrow_state: BaseEscrow.BaseEscrow.escrow_state = Active();
         const escrow_type: BaseEscrow.BaseEscrow.escrow_type = Destination();
 
-        const new_escrow_map: escrow_map = Big_map.add(escrow_id, {escrow_state, escrow_type}, store.escrow_map);
+        const rescue_delay: int = params.rescue_delay;
+
+        const new_escrow_map: escrow_map = Big_map.add(escrow_id, {escrow_state, escrow_type, rescue_delay}, store.escrow_map);
         const new_store: storage = {escrow_map: new_escrow_map};
 
 
@@ -373,6 +381,58 @@ export namespace EscrowManager {
         }
     }
     
+    type rescue_funds_param = {
+        immutables: Immutables.Immutables.immutables,
+        rescueDelay: int,
+        token_opt: option<address>,
+        amount: nat
+    };
+
+    // rescueFunds event payload
+    type funds_rescued_event = {
+        rescued_by: address,
+        token_rescued: option<address>,
+        amount_rescued: nat
+    };
+
+    const rescueFunds = (param: rescue_funds_param): list<operation> => {
+        // 1. Modifier equivalent: onlyTaker
+        BaseEscrow.BaseEscrow.onlyTaker(param.immutables);
+
+        // 2. Modifier equivalent: onlyValidImmutables
+        // onlyValidImmutables(s.immutables);
+
+        // 3. Modifier equivalent: onlyAfter
+        const rescueStartTime: timestamp = param.immutables.timelocks.deployedAt + param.rescueDelay;      
+        BaseEscrow.BaseEscrow.onlyAfter(rescueStartTime);
+
+        // 4. Main logic: Create the transfer operation
+        const transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+            param.token_opt,
+            Tezos.get_self_address(), // from: this contract
+            Tezos.get_sender(),       // to: the taker who called this function
+            param.amount
+        );
+
+        
+        const event_payload: funds_rescued_event = {
+            rescued_by: Tezos.get_sender(),
+            token_rescued: param.token_opt,
+            amount_rescued: param.amount
+        };
+
+        const event_op: operation = Tezos.Next.Operation.emit("%FundsRescued", event_payload);
+        
+        // 7. Return BOTH operations in a list
+        return list([transfer_op, event_op]);
+    };
+
+
+    @entry
+    const createSrcEscrow = (params: create_src_params): return_type => {
+        return _createSrcEscrow(params, store);
+    }
+
 
 
 
