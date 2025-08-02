@@ -175,6 +175,78 @@ export namespace EscrowManager {
 
     }
 
+    namespace EscrowDstOperations {
+
+        const _dst_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): list<operation> => {
+
+            BaseEscrow.BaseEscrow.onlyValidSecret(params.secret, params.immutables);
+            onlyValidImmutables(params.immutables, escrow_map);
+
+            // sends the requested amount to the maker
+            const token_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+                params.immutables.token,
+                Tezos.get_self_address(),
+                params.immutables.maker,
+                params.immutables.amount
+            );
+
+            // sends back the safety deposit to the taker
+            const safety_deposit_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+                None(),
+                Tezos.get_self_address(),
+                Tezos.get_sender(),
+                params.immutables.safetyDeposit
+            );
+
+            // emit withdrawal(params.secret);
+
+            return list([token_transfer_op, safety_deposit_transfer_op]);
+        }
+
+        const dst_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+
+            BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
+            BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.dstWithdrawal);
+            BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.dstCancellation);
+
+            const ops: list<operation> = _dst_withdraw(params, escrow_map);
+            return [ops, {escrow_map}];
+        }
+
+        const dst_public_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables }, escrow_map: escrow_map): return_type => {
+
+            BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.dstPublicWithdrawal);
+            BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.dstCancellation);
+
+            const ops: list<operation> = _dst_withdraw(params, escrow_map);
+            return [ops, {escrow_map}];
+        }
+
+        const dst_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+
+            BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
+            onlyValidImmutables(params.immutables, escrow_map);
+            BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.dstCancellation);
+
+            const token_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+                params.immutables.token,
+                Tezos.get_self_address(),
+                params.immutables.taker,
+                params.immutables.amount
+            );
+
+            const safety_deposit_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
+                None(),
+                Tezos.get_self_address(),
+                Tezos.get_sender(),
+                params.immutables.safetyDeposit
+            );
+
+            return [list([token_transfer_op, safety_deposit_transfer_op]), {escrow_map}];
+        }
+        
+    }
+
 
     const createSrcEscrow = (params: create_src_params, store: storage): return_type => {
         
@@ -270,6 +342,8 @@ export namespace EscrowManager {
             failwith("Invalid creation time");
         }   
 
+
+        // create a new escrow entry and update contract state
         const escrow_id: BaseEscrow.BaseEscrow.immutables_hash = Immutables.Immutables.hash(dest_immutables);
 
         const escrow_state: BaseEscrow.BaseEscrow.escrow_state = Active();
@@ -298,8 +372,7 @@ export namespace EscrowManager {
             return [list([transfer_op, event_op]), new_store];
         }
     }
-
-
+    
 
 
 
