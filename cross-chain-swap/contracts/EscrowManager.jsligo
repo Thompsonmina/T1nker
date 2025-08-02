@@ -1,6 +1,6 @@
-#import "./libraries/Immutables.jsligo" "Immutables"
-#import "./libraries/UniversalTransfer.jsligo" "UniversalTransfer"
 #import "BaseEscrow.jsligo" "BaseEscrow"
+#import "./libraries/UniversalTransfer.jsligo" "UniversalTransfer"
+#import "./libraries/Immutables.jsligo" "Immutables"
 
 
 
@@ -74,7 +74,7 @@ export namespace EscrowManager {
         const escrow_content_opt: option<escrow_content> = Big_map.find_opt (escrow_id, escrow_map);
 
         return match(escrow_content_opt) {
-            when(Some({escrow_state, escrow_type})): do {
+            when(Some({escrow_state, escrow_type, rescue_delay})): do {
                 match(escrow_state) {
                     when(Active): true
                     when(_): false
@@ -157,7 +157,7 @@ export namespace EscrowManager {
             
         }
 
-        export const src_public_withdraw = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
+        export const src_public_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
             
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcPublicWithdrawal);
             BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.srcCancellation);
@@ -190,9 +190,8 @@ export namespace EscrowManager {
                 params.immutables.safetyDeposit
             );
 
-            const escrow_cancel_event: escrow_cancel_event = {};
 
-            const event_op: operation = Tezos.Next.Operation.emit("%EscrowCancelSrc", escrow_cancel_event);
+            const event_op: operation = Tezos.Next.Operation.emit("%EscrowCancelSrc", unit);
 
             return list([token_transfer_op, safety_deposit_transfer_op, event_op]);
         }
@@ -395,7 +394,12 @@ export namespace EscrowManager {
 
         const new_escrow_map: escrow_map = Big_map.add(escrow_id, {escrow_state, escrow_type, rescue_delay}, store.escrow_map);
         const new_store: storage = {escrow_map: new_escrow_map};
-
+        
+        const escrow_dst_created_event: escrow_dst_created_event = {
+            immutables: dest_immutables,
+        };
+        
+        const event_op: operation = Tezos.Next.Operation.emit("%EscrowDstCreated", escrow_dst_created_event);
 
         if (!tez_sent) {
             // If the token is an fa2(erc20) the contract needs to be approved to send the token
@@ -405,16 +409,11 @@ export namespace EscrowManager {
                 Tezos.get_sender(), // The maker sends the token on escrow creation
                 Tezos.get_self_address(),
                 params.immutables.amount
-            );
-
-            const escrow_dst_created_event: escrow_dst_created_event = {
-                immutables: dest_immutables,
-            };
-
-            const event_op: operation = Tezos.Next.Operation.emit("%EscrowDstCreated", escrow_dst_created_event);
-
+            );        
             return [list([transfer_op, event_op]), new_store];
         }
+        
+        return [list([event_op]), new_store];
     }
     
     
@@ -481,7 +480,7 @@ export namespace EscrowManager {
     }
 
     @entry
-    const srcPublicWithdraw = (params: {immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
+    const srcPublicWithdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
         return EscrowSrcOperations.src_public_withdraw(params, store.escrow_map);
     }
 

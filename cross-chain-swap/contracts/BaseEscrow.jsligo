@@ -8,21 +8,6 @@ export namespace BaseEscrow  {
     export type immutables_hash = bytes; // hash of immutables
     export type escrow_state = ["Active"] | ["Cancelled"] | ["Finalized"];
     export type escrow_type = ["Source"] | ["Destination"];
-    
-    // rescueFunds parameters
-    type rescue_funds_param = {
-        immutables: Immutables.Immutables.immutables,
-        rescueDelay: int,
-        token_opt: option<address>,
-        amount: nat
-    };
-
-    // rescueFunds event payload
-    type funds_rescued_event = {
-        rescued_by: address,
-        token_rescued: option<address>,
-        amount_rescued: nat
-    };
 
     
     export const onlyTaker = (im: Immutables.Immutables.immutables) : unit => {
@@ -32,7 +17,6 @@ export namespace BaseEscrow  {
           
     };
 
-    
     export const onlyValidSecret = (secret: bytes, immutables: Immutables.Immutables.immutables) : unit => {
         if (Crypto.keccak(secret) != immutables.hashlock) {
             failwith("INVALID_SECRET");
@@ -57,22 +41,15 @@ export namespace BaseEscrow  {
     }
 
     
-
     const uniTransfer = (token_opt: option<address>, from_: address, to_: address, amountNat: nat): operation => {
         return UniversalTransfer.UniversalTransfer.uniTransfer(token_opt, from_, to_, amountNat);
     }
 
 
-    
-    // @entry
-    // const dummy = (_ : unit, s : unit) : [list<operation>, unit] => {
-    //     return [list([]), unit]
+    // type validSecretParams = {
+    //     secret: bytes,
+    //     hashlock: bytes
     // }
-
-    type validSecretParams = {
-        secret: bytes,
-        hashlock: bytes
-    }
 
     // @entry
     // const isvalidSecretEntry = (params: validSecretParams, storage: bool): [list<operation>, bool] => {
