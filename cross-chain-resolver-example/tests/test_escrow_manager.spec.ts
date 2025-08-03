@@ -1,11 +1,6 @@
 
 import taquitoSigner from '@taquito/signer';
 import taquito from '@taquito/taquito';
-import { Storage,  } from '../../cross-chain-swap-tezos/types/EscrowManager.types';
-
-
-// import { TezosToolkit, MichelsonMap, OpKind } from '@taquito/taquito';
-import { BigNumber } from 'bignumber.js';
 
 import taquitoUtils from '@taquito/utils';
 import crypto from 'crypto';
@@ -13,44 +8,33 @@ import keccak from 'keccak';
 import { expect } from '@jest/globals';
 
 
+import { config } from './tezos_config';
+import { buildImmutables, makeTimelocks } from './tezos_escrow_factory_helpers';
+import { create_tez_src_escrow, create_tez_dst_escrow, create_fa2_src_escrow, create_fa2_dst_escrow } from './tezos-escrow-factory';
+import { tzktPayloadToImmutables, hasSrcCreatedEvent, escrowExists, getBalance, fa2Balance, getLatestEventPayload } from './tezos-escrow-factory';
 
-// console.log("taquitoSigner", taquitoSigner)
-// console.log("taquito", taquito)
 
 const getTaqueriaConfig = async () => {
-    // const config = await getConfigV2(process.env)
-    let rpc_url = "https://ghostnet.ecadinfra.com"
-
-    let alice_sk = "edskS1SivTJESudRQgn9KidKWtZjm8RnL2nyF5QFU8GSxi22u9PVpmHU5BHiF29BwwsJk6mdCV2XqeQ3JpVw9khzhvrUMXYpAm"
-    let alice_address = "tz1Ys4iNA8odKJVBysTaZyQidvcHMKLTxvud"
-    let bob_address = "tz1cPwxzsVciajsGHdbUYKqsCVVCKx3yK2sG"
-    let bob_sk = "edskS3HnwZyg8parekZBktxYEBxYN7c52etbkwxQh7sC7GCeXZxZKFvmTeBB4e7buDuhDekUUT2CkxMtKgzpJeLi7NQEKLtHxh"
-
-    let escrow_manager_address =  "KT1J1wVdVwpXXTLjebVpuQi6SedS8nrhvVR5"
-    let fa2_kt_address = "KT1KHtMYqCuBTMHmSjDb3JYRXvKY4c8yb4TY"
-
-
  
-    const Tezos = new taquito.TezosToolkit(rpc_url)
-    Tezos.setStreamProvider(rpc_url);
-    const admin_signer = new taquitoSigner.InMemorySigner(alice_sk);
-    Tezos.setSignerProvider(admin_signer);
+    const Tezos = new taquito.TezosToolkit(config.rpc_url)
+    Tezos.setStreamProvider(config.rpc_url);
+    const alice_signer = new taquitoSigner.InMemorySigner(config.accounts.alice.sk);
+    Tezos.setSignerProvider(alice_signer);
 
-    console.log("bobs uncle")
-    const BobTezos = new taquito.TezosToolkit(rpc_url)
-    const bob_signer = new taquitoSigner.InMemorySigner(bob_sk);
+    const BobTezos = new taquito.TezosToolkit(config.rpc_url)
+    const bob_signer = new taquitoSigner.InMemorySigner(config.accounts.bob.sk);
     BobTezos.setSignerProvider(bob_signer);
 
 
         return {
-            rpc_url,
-            alice: alice_address,
-            alice_sk: alice_sk,
-            bob: bob_address,
-            escrow_manager: escrow_manager_address,
-            fa2_kt: fa2_kt_address,
+            rpc_url: config.rpc_url,
+            alice: config.accounts.alice.address,
+            alice_sk: config.accounts.alice.sk,
+            bob: config.accounts.bob.address,
+            escrow_manager: config.accounts.escrow_factory.address,
+            fa2_kt: config.accounts.fa2_token.address,
             Tezos,
-            admin_signer,
+            alice_signer,
             BobTezos,
             bob_signer
         }
@@ -75,215 +59,15 @@ export const setupTaqueriaTest = async () => {
     }    
 }
 
-const randomHex = (bytes: number) => '0x' + crypto.randomBytes(bytes).toString('hex');
-
-// Creates timelock intervals for escrow operations, all times in seconds from deployment
-const makeTimelocks = (now: number) => ({
-    // Source chain timelock intervals:
-    srcWithdrawal:       now + 10,    // Taker can withdraw after 10s
-    srcPublicWithdrawal: now + 120,   // Anyone can withdraw after 2min
-    srcCancellation:     now + 121,   // Maker can cancel after 2min 1s
-    srcPublicCancellation: now + 122, // Anyone can cancel after 2min 2s
-
-    // Destination chain timelock intervals:  
-    dstWithdrawal:       now + 10,    // Taker can withdraw after 10s
-    dstPublicWithdrawal: now + 100,   // Anyone can withdraw after 1min 40s
-    dstCancellation:     now + 101,   // Maker can cancel after 1min 41s
-    
-    deployedAt:          now          // Timestamp when escrow was created
-});
-
-const buildImmutables = (
-    tokenOpt: string | null,
-    amount: number,
-    now: number = 1735689600,
-    maker: string,
-    taker: string,
-    orderHash: string = 'b157e8fa0faaed7c0d56196dd78430dfb8b416a7e41d6d89058caa7a4462c617',
-    hashlock: string = 'd64b150ee5d350ec6284c7f6c7af8985d0e5dee26640e04befa2584797f40e3e'
-  ) => ({
-    orderHash:      orderHash,
-    hashlock:       hashlock,
-    maker:          maker,
-    taker:          taker,
-    token:          tokenOpt ? tokenOpt : null,
-    amount,                         // nat
-    safetyDeposit: SAFETY_DEPOSIT, // nat
-    timelocks:      makeTimelocks(now)
-    // timelocks:      makeTimelocks(Math.floor(Date.now() / 1000))
-});
-
 
 // one place to tweak the escrowed amount for both tests
-const XTZ_ESCROW_AMT = 20000;           // 2 ꜩ
-const TOKEN_ESCROW_AMT = 100;     // 5 000 token-units
-const SAFETY_DEPOSIT = 2000         // src side doesn’t send it
-
-
-async function get_escrow_manager_storage(escrow_manager_contract: taquito.Contract): Promise<Storage> {
-    const storage = await escrow_manager_contract.storage<Storage>();
-    // console.log("storage", storage)
-    return storage;
-}
-
-const hasSrcCreatedEvent = (opResults: any[]): boolean => {
-    const intOps = opResults?.[0]?.metadata?.internal_operation_results ?? [];
-    return intOps.some((r: any) => r.kind === 'event' && r.tag === 'EscrowSrcCreated');
-};
-
-// const getDstCreatedEventPayload = (opResults: any[]): any | null => {
-//     const intOps = opResults?.[0]?.metadata?.internal_operation_results ?? [];
-//     const event = intOps.find((r: any) => r.kind === 'event' && r.tag === 'EscrowDstCreated');
-//     // Taquito automatically decodes the event payload into a JS object.
-//     return event ? event.payload : null;
-// };
-
-
-const create_tez_src_escrow = async (escrow_manager_contract: taquito.Contract, immutables: any) => {
-    
-    const op = await escrow_manager_contract.methodsObject
-      .createSrcEscrow({ immutables, rescue_delay: 6000 })
-      .send({ amount: XTZ_ESCROW_AMT + SAFETY_DEPOSIT, mutez: true }); // Source now requires amount + safety deposit
-    await op.confirmation(1);
-    return op;
-}
-
-const create_tez_dst_escrow = async (escrow_manager_contract: taquito.Contract, immutables: any, src_cancellation_timestamp: number) => {
-    const op = await escrow_manager_contract.methodsObject
-      .createDstEscrow({ immutables, rescue_delay: 6000, src_cancellation_timestamp })
-      .send({ amount: XTZ_ESCROW_AMT + SAFETY_DEPOSIT, mutez: true }); // Dst requires amount + safety deposit
-    await op.confirmation(1);
-    return op;
-}
-
-
-const create_fa2_src_escrow = async (escrow_manager_contract: taquito.Contract, immutables: any) => {
-    const op = await escrow_manager_contract.methodsObject
-      .createSrcEscrow({ immutables, rescue_delay: 6000 })
-      .send({ amount: SAFETY_DEPOSIT, mutez: true }); // FA2 source now requires safety deposit in tez
-    await op.confirmation(1);
-    return op;
-}
-
-const create_fa2_dst_escrow = async (escrow_manager_contract: taquito.Contract, immutables: any, src_cancellation_timestamp: number) => {
-    const op = await escrow_manager_contract.methodsObject
-        .createDstEscrow({ immutables, rescue_delay: 6000, src_cancellation_timestamp })
-        .send({ amount: SAFETY_DEPOSIT, mutez: true }); // Dst FA2 only requires the safety deposit in tez
-    await op.confirmation(1);
-    return op;
-}
+const XTZ_ESCROW_AMT = 20000;          
+const TOKEN_ESCROW_AMT = 100;     
+const SAFETY_DEPOSIT = 2000         
 
 
 
-// Converts a payload from TzKT (with string numbers/timestamps) to a format Taquito's views expect.
-function tzktPayloadToImmutables(payload: any): any {
-    if (!payload) return null;
-
-    // Convert numeric strings to BigNumber for Taquito.
-    const amount = new BigNumber(payload.amount);
-    const safetyDeposit = new BigNumber(payload.safetyDeposit);
-
-    // Convert ISO timestamp strings to seconds-since-epoch numbers.
-    const timelocksInSeconds: { [key: string]: number } = {};
-    for (const key in payload.timelocks) {
-        timelocksInSeconds[key] = Math.floor(new Date(payload.timelocks[key]).getTime() / 1000);
-    }
-
-    return {
-        ...payload,
-        amount,
-        safetyDeposit,
-        timelocks: timelocksInSeconds
-    };
-}
-
-// function waitForEvent(tezos: taquito.TezosToolkit, address: string, tag: string): Promise<any> {
-//     return new Promise((resolve, reject) => {
-//         const sub = tezos.stream.subscribeEvent({
-//             tag: tag,
-//             address: address,
-//         });
-
-//         const timeout = setTimeout(() => {
-//             sub.close();
-//             reject(new Error(`Timeout waiting for event '${tag}'`));
-//         }, 30000); // 30s timeout for the event
-
-//         sub.on('data', (data: any) => {
-//             clearTimeout(timeout);
-//             sub.close();
-//             // The streaming provider automatically decodes the payload
-//             resolve(data);
-//         });
-
-//         sub.on('error', (err) => {
-//             clearTimeout(timeout);
-//             sub.close();
-//             reject(err);
-//         });
-//     });
-// }
-
-
-
-
-
-// Helper to fetch tez balance of an implicit account
-
-
-// Fetches the latest event payload directly from the TzKT indexer API.
-async function getLatestEventPayload(contractAddress: string, tag: string): Promise<any | null> {
-    
-    try {
-        // TzKT API provides sorted, decoded event data.
-        const url = `https://api.ghostnet.tzkt.io/v1/contracts/events?contract=${contractAddress}&tag=${tag}&sort.desc=id&limit=1`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch events from TzKT: ${response.statusText}`);
-        }
-        const events = await response.json();
-        if (events && events.length > 0) {
-            // Return the payload of the most recent event.
-            console.log("url", url)
-            console.log("events", events)
-            return events[0].payload;
-        }
-        return null;
-    } catch (error) {
-        console.error("Error fetching latest event payload:", error);
-        return null;
-    }
-}
-
-const getBalance = async (tezoshandler: taquito.TezosToolkit, addr: string) =>
-    Number(await tezoshandler.tz.getBalance(addr));
-
-async function fa2Balance(fa2_kt_contract: taquito.Contract, addr: string): Promise<number> {           // FA2 contract
-    /* Michelson view expects (pair address nat)      →  {0: addr, 1: tokenId} */
-    const res = await fa2_kt_contract.contractViews.get_balance_of([{ token_id: 0, owner: addr }]).executeView({ viewCaller: fa2_kt_contract.address }) // token-id 0
-    console.log("res", Number(res[0].balance))
-    return Number(res[0].balance);
-}
-
-async function escrowExists(escrow_manager_contract: taquito.Contract, immutables: any): Promise<boolean> {
-    try {
-        // Directly call the contract's on-chain view
-        const isActive = await escrow_manager_contract.contractViews
-            .escrow_exists(immutables)
-            .executeView({ viewCaller: escrow_manager_contract.address });
-        return isActive;
-    } catch (error: any) {
-        // The view is designed to fail if the escrow doesn't exist.
-        // We check for the specific error message to confirm this is the case.
-        if (error.message.includes("No Escrows exist")) {
-            return false;
-        }
-        // If it's a different error, we re-throw it to fail the test.
-        throw error;
-    }
-}
-
-// create a generic jest describe suit with a simple test in it 2 + 2 = 4
+// create a generic jest describe suit with a simple test in it 2 + 2 = 4, sanity test
 describe('Trivial Test', () => {
     it('2 + 2 = 4', () => {
         expect(2 + 2).toBe(4);
@@ -321,22 +105,18 @@ describe('Test Escrow Manager => Src Escrow and dst escrow creation', () => {
 
         escrow_manager_contract = await Tezos.contract.at(escrow_manager);
 
-
         fa2_kt_contract = await BobTezos.contract.at(fa2_kt);
         alice_fa2_kt_contract = await Tezos.contract.at(fa2_kt); // Initialize contract with Alice's signer
         
-
         tez_src_escrow_immutables = buildImmutables(null, XTZ_ESCROW_AMT, 1735689600, alice, bob);
         fa2_src_escrow_immutables = buildImmutables(fa2_kt, TOKEN_ESCROW_AMT, 1735689600, alice, bob);
 
         tez_dst_escrow_immutables = buildImmutables(null, XTZ_ESCROW_AMT, 1735689600 + 1000, alice, bob);
         fa2_dst_escrow_immutables = buildImmutables(fa2_kt, TOKEN_ESCROW_AMT, 1735689600 + 1000, alice, bob);
 
-
         // Initialize contract
         
-    });
-  
+    });  
 
     test('Contract has all required entrypoints', async () => {
         try {
@@ -362,12 +142,12 @@ describe('Test Escrow Manager => Src Escrow and dst escrow creation', () => {
         const mgrBalBefore     = await getBalance(Tezos, escrow_manager);
     
 
-        const op = await create_tez_src_escrow(escrow_manager_contract, tez_src_escrow_immutables);
+        const op = await create_tez_src_escrow(escrow_manager_contract, tez_src_escrow_immutables, XTZ_ESCROW_AMT, SAFETY_DEPOSIT);
     
         expect(op.status).toBe('applied');
         expect(hasSrcCreatedEvent(op.results)).toBe(true);
-        
     
+
         const aliceBalAfter    = await getBalance(Tezos, alice);
         const mgrBalAfter = await getBalance(Tezos, escrow_manager);
 
@@ -392,7 +172,7 @@ describe('Test Escrow Manager => Src Escrow and dst escrow creation', () => {
       const src_cancellation_timestamp = tez_dst_escrow_immutables.timelocks.dstCancellation + 100;
 
       // 3. Create the destination escrow
-      const op = await create_tez_dst_escrow(escrow_manager_contract, tez_dst_escrow_immutables, src_cancellation_timestamp);
+      const op = await create_tez_dst_escrow(escrow_manager_contract, tez_dst_escrow_immutables, src_cancellation_timestamp, XTZ_ESCROW_AMT, SAFETY_DEPOSIT);
       expect(op.status).toBe('applied');
       
       // Add a small delay to allow the indexer to catch up with the blockchain.
@@ -431,7 +211,7 @@ describe('Test Escrow Manager => Src Escrow and dst escrow creation', () => {
         const mgrFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
 
         // 3. Create the FA2 source escrow
-        const op = await create_fa2_src_escrow(escrow_manager_contract, fa2_src_escrow_immutables);
+        const op = await create_fa2_src_escrow(escrow_manager_contract, fa2_src_escrow_immutables, XTZ_ESCROW_AMT, SAFETY_DEPOSIT);
 
         // 4. Assertions
         expect(op.status).toBe('applied');
@@ -475,7 +255,7 @@ describe('Test Escrow Manager => Src Escrow and dst escrow creation', () => {
         const src_cancellation_timestamp = fa2_dst_escrow_immutables.timelocks.dstCancellation + 100;
         
         // 4. Create the destination escrow
-        const op = await create_fa2_dst_escrow(escrow_manager_contract, fa2_dst_escrow_immutables, src_cancellation_timestamp);
+        const op = await create_fa2_dst_escrow(escrow_manager_contract, fa2_dst_escrow_immutables, src_cancellation_timestamp, XTZ_ESCROW_AMT, SAFETY_DEPOSIT);
         expect(op.status).toBe('applied');
         
         // Add a small delay for the indexer
@@ -506,97 +286,6 @@ describe('Test Escrow Manager => Src Escrow and dst escrow creation', () => {
 
     }, TEST_TIME_OUT);
     
-
-
-    // // test alice and bob have tez
-    // test('alice and bob have tez', async () => {
-    //     const alice_balance = await getBalance(alice);
-    //     const bob_balance = await getBalance(bob);
-    //     expect(alice_balance).toBeGreaterThan(0);
-    //     expect(bob_balance).toBeGreaterThan(0);
-    //     console.log("alice_balance", alice_balance)
-    //     console.log("bob_balance", bob_balance)
-    // }, TEST_TIME_OUT);
-
-    // test('alice and bob have fa2 tokens', async () => {
-    //     const alice_balance = await fa2Balance(alice);
-    //     const bob_balance = await fa2Balance(bob);
-    //     expect(alice_balance).toBeGreaterThan(0);
-    //     expect(bob_balance).toBeGreaterThan(0);
-    // }, TEST_TIME_OUT);
-
-    // test(
-    //     'Contract can transfer tez to implicit accounts',
-    //     async () => {
-    //       const beforeA = await getBalance(alice);
-    //         const beforeB = await getBalance(bob);
-    //         console.log("beforeA", beforeA)
-    //         console.log("beforeB", beforeB)
-
-    
-    //       const tezParam = {
-    //         token_opt: null,                 // None() in JS = null
-    //         from_: uni_transfer_contract.address,
-    //         to_:   bob,
-    //         amount: 2_000               // mutez  → 2ꜩ
-    //       };
-    
-    //       const op = await uni_transfer_contract.methodsObject.transfer(tezParam).send({amount: 1});
-    //       await op.confirmation();                                  // 1 conf is fine
-    
-    //       const afterA = await getBalance(alice);
-    //       const afterB = await getBalance(bob);
-    
-    //       // fee < 0.1ꜩ ensures simple ≥ check is robust
-    //       expect(afterA).toBeLessThan(beforeA - 1_900);         // spent 2ꜩ + fee
-    //       expect(afterB).toBe(beforeB + 2_000);
-    //       console.log("afterA", afterA)
-    //       console.log("afterB", afterB)
-    //     },
-    //     TEST_TIME_OUT
-    // );
-    
-
-    // test(
-    //     'Contract can transfer FA2 tokens to implicit accounts',
-    //     async () => {
-    //       const beforeA = await fa2Balance(alice);
-    //         const beforeB = await fa2Balance(bob);
-
-    //          // transfer 100 units of token 0 from bob to the contract
-    //         const from_ = bob;                            // Alice
-    //         const to_ = uni_transfer_contract.address;
-    //         // contract
-    //         await fa2_kt_contract.methodsObject.transfer([
-    //           { from_, txs: [{ to_, token_id: 0, amount: 100 }] }                            // 100 units
-    //         ]).send().then(op => op.confirmation());
-
-
-    //       const fa2Param = {
-    //         token_opt: fa2_kt,                // Some(address) in JS
-    //         from_: uni_transfer_contract.address,
-    //         to_:   alice,
-    //         amount: 100
-    //       };
-    
-    //       const op = await uni_transfer_contract.methodsObject.transfer(fa2Param).send();
-    //       await op.confirmation();
-    
-    //       const afterA = await fa2Balance(alice);
-    //       const afterB = await fa2Balance(bob);
-    
-    //       expect(afterB).toBe(beforeB - 100);
-    //         expect(afterA).toBe(beforeA + 100);
-            
-    //       console.log("beforeA", beforeA)
-    //       console.log("beforeB", beforeB)
-    //       console.log("afterA", afterA)
-    //       console.log("afterB", afterB)
-    //     },
-    //     TEST_TIME_OUT
-    // );
-
-    // test alice can transfer tez to bob
 });
 
 
@@ -656,7 +345,7 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
 
         // 3. Create the tez source escrow to be used in tests
         console.log("Creating tez source escrow for withdrawal tests...");
-        const tezOp = await create_tez_src_escrow(escrow_manager_contract, tez_src_escrow_immutables);
+        const tezOp = await create_tez_src_escrow(escrow_manager_contract, tez_src_escrow_immutables, XTZ_ESCROW_AMT, SAFETY_DEPOSIT);
         await tezOp.confirmation(1);
         expect(tezOp.status).toBe('applied');
         console.log("Tez source escrow created.");
@@ -684,7 +373,7 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
         ]).send();
         await approve_op.confirmation(1);
         
-        const fa2Op = await create_fa2_src_escrow(escrow_manager_contract, fa2_src_escrow_immutables);
+        const fa2Op = await create_fa2_src_escrow(escrow_manager_contract, fa2_src_escrow_immutables, XTZ_ESCROW_AMT, SAFETY_DEPOSIT);
         await fa2Op.confirmation(1);
         expect(fa2Op.status).toBe('applied');
         console.log("FA2 source escrow created.");
@@ -820,7 +509,7 @@ describe('Test Escrow Manager => Dst Escrow Withdrawals', () => {
         
         // 1. Create a tez destination escrow
         const tez_dst_immutables_local = buildImmutables(null, XTZ_ESCROW_AMT, now, alice, bob, crypto.randomBytes(32).toString('hex'), hashlock);
-        const tezOp = await create_tez_dst_escrow(escrow_manager_contract, tez_dst_immutables_local, now + 1000);
+        const tezOp = await create_tez_dst_escrow(escrow_manager_contract, tez_dst_immutables_local, now + 1000, XTZ_ESCROW_AMT, SAFETY_DEPOSIT);
         await tezOp.confirmation(1);
         expect(tezOp.status).toBe('applied');
 
@@ -839,7 +528,7 @@ describe('Test Escrow Manager => Dst Escrow Withdrawals', () => {
          await approve_op.confirmation(1);
 
         const fa2_dst_immutables_local = buildImmutables(fa2_kt, TOKEN_ESCROW_AMT, now + 1, alice, bob, crypto.randomBytes(32).toString('hex'), hashlock);
-        const fa2Op = await create_fa2_dst_escrow(escrow_manager_contract, fa2_dst_immutables_local, now + 1001);
+        const fa2Op = await create_fa2_dst_escrow(escrow_manager_contract, fa2_dst_immutables_local, now + 1001, XTZ_ESCROW_AMT, SAFETY_DEPOSIT);
         await fa2Op.confirmation(1);
         expect(fa2Op.status).toBe('applied');
         // Fetch the on-chain data from the event
@@ -913,4 +602,4 @@ describe('Test Escrow Manager => Dst Escrow Withdrawals', () => {
         expect(eventPayload).toBe(secret);
     }, TEST_TIME_OUT);
     
-   });
+});
