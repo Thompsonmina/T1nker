@@ -16,6 +16,7 @@
     "@swc/core": "1.5.25",
     "@swc/jest": "0.2.36",
     "@types/jest": "29.5.12",
+    "@types/keccak": "^3.0.5",
     "@types/node": "^22.16.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
@@ -48,6 +49,7 @@
     "@taquito/utils": "^22.0.0",
     "dotenv": "16.4.5",
     "ethers": "6.13.2",
+    "keccak": "^3.0.4",
     "prool": "0.0.24"
   }
 }
