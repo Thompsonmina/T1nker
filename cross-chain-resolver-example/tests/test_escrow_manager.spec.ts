@@ -291,313 +291,313 @@ describe('Trivial Test', () => {
 });
 
 
-// describe('Test Escrow Manager => Src Escrow and dst escrow creation', () => {
+describe('Test Escrow Manager => Src Escrow and dst escrow creation', () => {
     
-//     const TEST_TIME_OUT = 30000;
-//     let Tezos: taquito.TezosToolkit;
-//     let escrow_manager: string;
-//     let escrow_manager_contract: taquito.Contract;
-//     let fa2_kt: string;
-//     let fa2_kt_contract: taquito.Contract;
-//     let alice_fa2_kt_contract: taquito.Contract;
-//     let alice: string;
-//     let bob: string;
-//     let BobTezos: taquito.TezosToolkit;
+    const TEST_TIME_OUT = 30000;
+    let Tezos: taquito.TezosToolkit;
+    let escrow_manager: string;
+    let escrow_manager_contract: taquito.Contract;
+    let fa2_kt: string;
+    let fa2_kt_contract: taquito.Contract;
+    let alice_fa2_kt_contract: taquito.Contract;
+    let alice: string;
+    let bob: string;
+    let BobTezos: taquito.TezosToolkit;
 
-//     let tez_src_escrow_immutables: any;
-//     let fa2_src_escrow_immutables: any;
-//     let tez_dst_escrow_immutables: any;
-//     let fa2_dst_escrow_immutables: any;
+    let tez_src_escrow_immutables: any;
+    let fa2_src_escrow_immutables: any;
+    let tez_dst_escrow_immutables: any;
+    let fa2_dst_escrow_immutables: any;
 
-//     beforeAll(async () => {
-//         // Get config
-//         const config = await setupTaqueriaTest();
-//         Tezos = config.Tezos;
-//         alice = config.alice;
-//         bob = config.bob;
-//         escrow_manager = config.escrow_manager;
-//         fa2_kt = config.fa2_kt;
-//         BobTezos = config.BobTezos;
+    beforeAll(async () => {
+        // Get config
+        const config = await setupTaqueriaTest();
+        Tezos = config.Tezos;
+        alice = config.alice;
+        bob = config.bob;
+        escrow_manager = config.escrow_manager;
+        fa2_kt = config.fa2_kt;
+        BobTezos = config.BobTezos;
 
-//         escrow_manager_contract = await Tezos.contract.at(escrow_manager);
+        escrow_manager_contract = await Tezos.contract.at(escrow_manager);
 
 
-//         fa2_kt_contract = await BobTezos.contract.at(fa2_kt);
-//         alice_fa2_kt_contract = await Tezos.contract.at(fa2_kt); // Initialize contract with Alice's signer
+        fa2_kt_contract = await BobTezos.contract.at(fa2_kt);
+        alice_fa2_kt_contract = await Tezos.contract.at(fa2_kt); // Initialize contract with Alice's signer
         
 
-//         tez_src_escrow_immutables = buildImmutables(null, XTZ_ESCROW_AMT, 1735689600, alice, bob);
-//         fa2_src_escrow_immutables = buildImmutables(fa2_kt, TOKEN_ESCROW_AMT, 1735689600, alice, bob);
+        tez_src_escrow_immutables = buildImmutables(null, XTZ_ESCROW_AMT, 1735689600, alice, bob);
+        fa2_src_escrow_immutables = buildImmutables(fa2_kt, TOKEN_ESCROW_AMT, 1735689600, alice, bob);
 
-//         tez_dst_escrow_immutables = buildImmutables(null, XTZ_ESCROW_AMT, 1735689600 + 1000, alice, bob);
-//         fa2_dst_escrow_immutables = buildImmutables(fa2_kt, TOKEN_ESCROW_AMT, 1735689600 + 1000, alice, bob);
+        tez_dst_escrow_immutables = buildImmutables(null, XTZ_ESCROW_AMT, 1735689600 + 1000, alice, bob);
+        fa2_dst_escrow_immutables = buildImmutables(fa2_kt, TOKEN_ESCROW_AMT, 1735689600 + 1000, alice, bob);
 
 
-//         // Initialize contract
+        // Initialize contract
         
-//     });
+    });
   
 
-//     test('Contract has all required entrypoints', async () => {
-//         try {
-//             const methods = escrow_manager_contract.parameterSchema.ExtractSignatures();
-//             const requiredMethods = ['createSrcEscrow', 'createDstEscrow', 'rescueFunds', 'srcCancel', 'dstCancel',
-//                 'srcPublicWithdraw', 'dstPublicWithdraw', 'srcWithdraw', 'srcWithdrawTo', 'dstWithdraw'];
-//             requiredMethods.forEach(method => {
-//                 expect(JSON.stringify(methods)).toContain(method);
-//             });
-//         } catch (error) {
-//             throw new Error(
-//                 `Error checking contract methods: ${error}\n` +
-//                 'Did you run "npm run originate:development"?'
-//             );
-//         }
-//     }, TEST_TIME_OUT);
+    test('Contract has all required entrypoints', async () => {
+        try {
+            const methods = escrow_manager_contract.parameterSchema.ExtractSignatures();
+            const requiredMethods = ['createSrcEscrow', 'createDstEscrow', 'rescueFunds', 'srcCancel', 'dstCancel',
+                'srcPublicWithdraw', 'dstPublicWithdraw', 'srcWithdraw', 'srcWithdrawTo', 'dstWithdraw'];
+            requiredMethods.forEach(method => {
+                expect(JSON.stringify(methods)).toContain(method);
+            });
+        } catch (error) {
+            throw new Error(
+                `Error checking contract methods: ${error}\n` +
+                'Did you run "npm run originate:development"?'
+            );
+        }
+    }, TEST_TIME_OUT);
 
 
 
-//     test('creates a tez source escrow and emits EscrowSrcCreated', async () => {
+    test('creates a tez source escrow and emits EscrowSrcCreated', async () => {
         
-//         const aliceBalBefore   = await getBalance(Tezos, alice);
-//         const mgrBalBefore     = await getBalance(Tezos, escrow_manager);
+        const aliceBalBefore   = await getBalance(Tezos, alice);
+        const mgrBalBefore     = await getBalance(Tezos, escrow_manager);
     
 
-//         const op = await create_tez_src_escrow(escrow_manager_contract, tez_src_escrow_immutables);
+        const op = await create_tez_src_escrow(escrow_manager_contract, tez_src_escrow_immutables);
     
-//         expect(op.status).toBe('applied');
-//         expect(hasSrcCreatedEvent(op.results)).toBe(true);
+        expect(op.status).toBe('applied');
+        expect(hasSrcCreatedEvent(op.results)).toBe(true);
         
     
-//         const aliceBalAfter    = await getBalance(Tezos, alice);
-//         const mgrBalAfter = await getBalance(Tezos, escrow_manager);
+        const aliceBalAfter    = await getBalance(Tezos, alice);
+        const mgrBalAfter = await getBalance(Tezos, escrow_manager);
 
-//         // const storage = await get_escrow_manager_storage(escrow_manager_contract);
-//         // console.log("storage", storage)
+        // const storage = await get_escrow_manager_storage(escrow_manager_contract);
+        // console.log("storage", storage)
     
-//         // Alice paid the escrow amount (+gas); manager received it
-//         expect(mgrBalAfter - mgrBalBefore).toBeGreaterThanOrEqual(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
-//         expect(aliceBalBefore - aliceBalAfter).toBeGreaterThanOrEqual(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
+        // Alice paid the escrow amount (+gas); manager received it
+        expect(mgrBalAfter - mgrBalBefore).toBeGreaterThanOrEqual(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
+        expect(aliceBalBefore - aliceBalAfter).toBeGreaterThanOrEqual(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
         
-//         let escrow_exists = await escrowExists(escrow_manager_contract, tez_src_escrow_immutables);
-//         expect(escrow_exists).toBe(true);
+        let escrow_exists = await escrowExists(escrow_manager_contract, tez_src_escrow_immutables);
+        expect(escrow_exists).toBe(true);
 
-//     }, TEST_TIME_OUT);
+    }, TEST_TIME_OUT);
 
-//     test('creates a tez destination escrow and emits EscrowDstCreated', async () => {
-//       // 1. Get balances before
-//       const aliceBalBefore = await getBalance(Tezos, alice);
-//       const mgrBalBefore = await getBalance(Tezos, escrow_manager);
+    test('creates a tez destination escrow and emits EscrowDstCreated', async () => {
+      // 1. Get balances before
+      const aliceBalBefore = await getBalance(Tezos, alice);
+      const mgrBalBefore = await getBalance(Tezos, escrow_manager);
 
-//       // 2. Define a valid source cancellation timestamp
-//       const src_cancellation_timestamp = tez_dst_escrow_immutables.timelocks.dstCancellation + 100;
+      // 2. Define a valid source cancellation timestamp
+      const src_cancellation_timestamp = tez_dst_escrow_immutables.timelocks.dstCancellation + 100;
 
-//       // 3. Create the destination escrow
-//       const op = await create_tez_dst_escrow(escrow_manager_contract, tez_dst_escrow_immutables, src_cancellation_timestamp);
-//       expect(op.status).toBe('applied');
+      // 3. Create the destination escrow
+      const op = await create_tez_dst_escrow(escrow_manager_contract, tez_dst_escrow_immutables, src_cancellation_timestamp);
+      expect(op.status).toBe('applied');
       
-//       // Add a small delay to allow the indexer to catch up with the blockchain.
-//       await new Promise(resolve => setTimeout(resolve, 2000));
+      // Add a small delay to allow the indexer to catch up with the blockchain.
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-//       // 4. Fetch the latest event from TzKT to get the on-chain immutables
-//       const rawPayload = await getLatestEventPayload(escrow_manager, 'EscrowDstCreated');
-//       const onChainImmutables = tzktPayloadToImmutables(rawPayload);
-//       expect(onChainImmutables).toBeDefined();
-//       console.log("onChainImmutables", onChainImmutables)
+      // 4. Fetch the latest event from TzKT to get the on-chain immutables
+      const rawPayload = await getLatestEventPayload(escrow_manager, 'EscrowDstCreated');
+      const onChainImmutables = tzktPayloadToImmutables(rawPayload);
+      expect(onChainImmutables).toBeDefined();
+      console.log("onChainImmutables", onChainImmutables)
 
-//       // 5. Check balances after
-//       const aliceBalAfter = await getBalance(Tezos, alice);
-//       const mgrBalAfter = await getBalance(Tezos, escrow_manager);
-//       expect(mgrBalAfter - mgrBalBefore).toBe(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
-//       expect(aliceBalBefore - aliceBalAfter).toBeGreaterThanOrEqual(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
+      // 5. Check balances after
+      const aliceBalAfter = await getBalance(Tezos, alice);
+      const mgrBalAfter = await getBalance(Tezos, escrow_manager);
+      expect(mgrBalAfter - mgrBalBefore).toBe(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
+      expect(aliceBalBefore - aliceBalAfter).toBeGreaterThanOrEqual(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
 
-//       // 6. Verify existence using the decoded event payload
-//       const escrow_exists = await escrowExists(escrow_manager_contract, onChainImmutables);
-//       expect(escrow_exists).toBe(true);
+      // 6. Verify existence using the decoded event payload
+      const escrow_exists = await escrowExists(escrow_manager_contract, onChainImmutables);
+      expect(escrow_exists).toBe(true);
 
-//     }, TEST_TIME_OUT);
+    }, TEST_TIME_OUT);
 
-//     test('creates a fa2 source escrow and emits EscrowSrcCreated', async () => {
-//         // 1. Approve the escrow manager to spend Alice's FA2 tokens
-//         const approve_op = await alice_fa2_kt_contract.methodsObject.update_operators([
-//             { add_operator: { owner: alice, operator: escrow_manager, token_id: 0 } }
-//         ]).send();
-//         await approve_op.confirmation(1);
-//         expect(approve_op.status).toBe('applied');
+    test('creates a fa2 source escrow and emits EscrowSrcCreated', async () => {
+        // 1. Approve the escrow manager to spend Alice's FA2 tokens
+        const approve_op = await alice_fa2_kt_contract.methodsObject.update_operators([
+            { add_operator: { owner: alice, operator: escrow_manager, token_id: 0 } }
+        ]).send();
+        await approve_op.confirmation(1);
+        expect(approve_op.status).toBe('applied');
 
-//         // 2. Get balances before creating the escrow
-//         const aliceTezBalBefore = await getBalance(Tezos, alice);
-//         const mgrTezBalBefore = await getBalance(Tezos, escrow_manager);
-//         const aliceFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, alice);
-//         const mgrFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
+        // 2. Get balances before creating the escrow
+        const aliceTezBalBefore = await getBalance(Tezos, alice);
+        const mgrTezBalBefore = await getBalance(Tezos, escrow_manager);
+        const aliceFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, alice);
+        const mgrFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
 
-//         // 3. Create the FA2 source escrow
-//         const op = await create_fa2_src_escrow(escrow_manager_contract, fa2_src_escrow_immutables);
+        // 3. Create the FA2 source escrow
+        const op = await create_fa2_src_escrow(escrow_manager_contract, fa2_src_escrow_immutables);
 
-//         // 4. Assertions
-//         expect(op.status).toBe('applied');
-//         expect(hasSrcCreatedEvent(op.results)).toBe(true);
+        // 4. Assertions
+        expect(op.status).toBe('applied');
+        expect(hasSrcCreatedEvent(op.results)).toBe(true);
 
-//         const aliceTezBalAfter = await getBalance(Tezos, alice);
-//         const mgrTezBalAfter = await getBalance(Tezos, escrow_manager);
-//         const aliceFa2BalAfter = await fa2Balance(alice_fa2_kt_contract, alice);
-//         const mgrFa2BalAfter = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
+        const aliceTezBalAfter = await getBalance(Tezos, alice);
+        const mgrTezBalAfter = await getBalance(Tezos, escrow_manager);
+        const aliceFa2BalAfter = await fa2Balance(alice_fa2_kt_contract, alice);
+        const mgrFa2BalAfter = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
 
 
-//        // Tez balances should reflect the safety deposit
-//        expect(mgrTezBalAfter - mgrTezBalBefore).toBe(SAFETY_DEPOSIT);
-//        expect(aliceTezBalBefore - aliceTezBalAfter).toBeGreaterThanOrEqual(SAFETY_DEPOSIT);
+       // Tez balances should reflect the safety deposit
+       expect(mgrTezBalAfter - mgrTezBalBefore).toBe(SAFETY_DEPOSIT);
+       expect(aliceTezBalBefore - aliceTezBalAfter).toBeGreaterThanOrEqual(SAFETY_DEPOSIT);
        
-//        // Alice's FA2 balance should decrease, manager's should increase
-//        expect(aliceFa2BalBefore - aliceFa2BalAfter).toBe(TOKEN_ESCROW_AMT);
-//        expect(mgrFa2BalAfter - mgrFa2BalBefore).toBe(TOKEN_ESCROW_AMT);
+       // Alice's FA2 balance should decrease, manager's should increase
+       expect(aliceFa2BalBefore - aliceFa2BalAfter).toBe(TOKEN_ESCROW_AMT);
+       expect(mgrFa2BalAfter - mgrFa2BalBefore).toBe(TOKEN_ESCROW_AMT);
 
 
-//         const escrow_exists = await escrowExists(escrow_manager_contract, fa2_src_escrow_immutables);
-//         expect(escrow_exists).toBe(true);
+        const escrow_exists = await escrowExists(escrow_manager_contract, fa2_src_escrow_immutables);
+        expect(escrow_exists).toBe(true);
 
-//     }, TEST_TIME_OUT);
+    }, TEST_TIME_OUT);
 
-//     test('creates a fa2 destination escrow and emits EscrowDstCreated', async () => {
-//         // 1. Approve the escrow manager to spend Alice's FA2 tokens for the main amount
-//         const approve_op = await alice_fa2_kt_contract.methodsObject.update_operators([
-//             { add_operator: { owner: alice, operator: escrow_manager, token_id: 0 } }
-//         ]).send();
-//         await approve_op.confirmation(1);
-//         expect(approve_op.status).toBe('applied');
+    test('creates a fa2 destination escrow and emits EscrowDstCreated', async () => {
+        // 1. Approve the escrow manager to spend Alice's FA2 tokens for the main amount
+        const approve_op = await alice_fa2_kt_contract.methodsObject.update_operators([
+            { add_operator: { owner: alice, operator: escrow_manager, token_id: 0 } }
+        ]).send();
+        await approve_op.confirmation(1);
+        expect(approve_op.status).toBe('applied');
 
-//         // 2. Get balances before
-//         const aliceTezBalBefore = await getBalance(Tezos, alice);
-//         const mgrTezBalBefore = await getBalance(Tezos, escrow_manager);
-//         const aliceFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, alice);
-//         const mgrFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
+        // 2. Get balances before
+        const aliceTezBalBefore = await getBalance(Tezos, alice);
+        const mgrTezBalBefore = await getBalance(Tezos, escrow_manager);
+        const aliceFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, alice);
+        const mgrFa2BalBefore = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
 
-//         // 3. Define a valid source cancellation timestamp
-//         const src_cancellation_timestamp = fa2_dst_escrow_immutables.timelocks.dstCancellation + 100;
+        // 3. Define a valid source cancellation timestamp
+        const src_cancellation_timestamp = fa2_dst_escrow_immutables.timelocks.dstCancellation + 100;
         
-//         // 4. Create the destination escrow
-//         const op = await create_fa2_dst_escrow(escrow_manager_contract, fa2_dst_escrow_immutables, src_cancellation_timestamp);
-//         expect(op.status).toBe('applied');
+        // 4. Create the destination escrow
+        const op = await create_fa2_dst_escrow(escrow_manager_contract, fa2_dst_escrow_immutables, src_cancellation_timestamp);
+        expect(op.status).toBe('applied');
         
-//         // Add a small delay for the indexer
-//         await new Promise(resolve => setTimeout(resolve, 2000));
+        // Add a small delay for the indexer
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-//         // 5. Fetch the latest event from TzKT
-//         const rawPayload = await getLatestEventPayload(escrow_manager, 'EscrowDstCreated');
-//         const onChainImmutables = tzktPayloadToImmutables(rawPayload);
-//         expect(onChainImmutables).toBeDefined();
+        // 5. Fetch the latest event from TzKT
+        const rawPayload = await getLatestEventPayload(escrow_manager, 'EscrowDstCreated');
+        const onChainImmutables = tzktPayloadToImmutables(rawPayload);
+        expect(onChainImmutables).toBeDefined();
 
-//         // 6. Check balances after
-//         const aliceTezBalAfter = await getBalance(Tezos, alice);
-//         const mgrTezBalAfter = await getBalance(Tezos, escrow_manager);
-//         const aliceFa2BalAfter = await fa2Balance(alice_fa2_kt_contract, alice);
-//         const mgrFa2BalAfter = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
+        // 6. Check balances after
+        const aliceTezBalAfter = await getBalance(Tezos, alice);
+        const mgrTezBalAfter = await getBalance(Tezos, escrow_manager);
+        const aliceFa2BalAfter = await fa2Balance(alice_fa2_kt_contract, alice);
+        const mgrFa2BalAfter = await fa2Balance(alice_fa2_kt_contract, escrow_manager);
 
-//         // Tez balances should reflect the safety deposit
-//         expect(mgrTezBalAfter - mgrTezBalBefore).toBe(SAFETY_DEPOSIT);
-//         expect(aliceTezBalBefore - aliceTezBalAfter).toBeGreaterThanOrEqual(SAFETY_DEPOSIT);
+        // Tez balances should reflect the safety deposit
+        expect(mgrTezBalAfter - mgrTezBalBefore).toBe(SAFETY_DEPOSIT);
+        expect(aliceTezBalBefore - aliceTezBalAfter).toBeGreaterThanOrEqual(SAFETY_DEPOSIT);
 
-//         // FA2 balances should reflect the token amount
-//         expect(aliceFa2BalBefore - aliceFa2BalAfter).toBe(TOKEN_ESCROW_AMT);
-//         expect(mgrFa2BalAfter - mgrFa2BalBefore).toBe(TOKEN_ESCROW_AMT);
+        // FA2 balances should reflect the token amount
+        expect(aliceFa2BalBefore - aliceFa2BalAfter).toBe(TOKEN_ESCROW_AMT);
+        expect(mgrFa2BalAfter - mgrFa2BalBefore).toBe(TOKEN_ESCROW_AMT);
 
-//         // 7. Verify existence using the decoded event payload
-//         const escrow_exists = await escrowExists(escrow_manager_contract, onChainImmutables);
-//         expect(escrow_exists).toBe(true);
+        // 7. Verify existence using the decoded event payload
+        const escrow_exists = await escrowExists(escrow_manager_contract, onChainImmutables);
+        expect(escrow_exists).toBe(true);
 
-//     }, TEST_TIME_OUT);
+    }, TEST_TIME_OUT);
     
 
 
-//     // // test alice and bob have tez
-//     // test('alice and bob have tez', async () => {
-//     //     const alice_balance = await getBalance(alice);
-//     //     const bob_balance = await getBalance(bob);
-//     //     expect(alice_balance).toBeGreaterThan(0);
-//     //     expect(bob_balance).toBeGreaterThan(0);
-//     //     console.log("alice_balance", alice_balance)
-//     //     console.log("bob_balance", bob_balance)
-//     // }, TEST_TIME_OUT);
+    // // test alice and bob have tez
+    // test('alice and bob have tez', async () => {
+    //     const alice_balance = await getBalance(alice);
+    //     const bob_balance = await getBalance(bob);
+    //     expect(alice_balance).toBeGreaterThan(0);
+    //     expect(bob_balance).toBeGreaterThan(0);
+    //     console.log("alice_balance", alice_balance)
+    //     console.log("bob_balance", bob_balance)
+    // }, TEST_TIME_OUT);
 
-//     // test('alice and bob have fa2 tokens', async () => {
-//     //     const alice_balance = await fa2Balance(alice);
-//     //     const bob_balance = await fa2Balance(bob);
-//     //     expect(alice_balance).toBeGreaterThan(0);
-//     //     expect(bob_balance).toBeGreaterThan(0);
-//     // }, TEST_TIME_OUT);
+    // test('alice and bob have fa2 tokens', async () => {
+    //     const alice_balance = await fa2Balance(alice);
+    //     const bob_balance = await fa2Balance(bob);
+    //     expect(alice_balance).toBeGreaterThan(0);
+    //     expect(bob_balance).toBeGreaterThan(0);
+    // }, TEST_TIME_OUT);
 
-//     // test(
-//     //     'Contract can transfer tez to implicit accounts',
-//     //     async () => {
-//     //       const beforeA = await getBalance(alice);
-//     //         const beforeB = await getBalance(bob);
-//     //         console.log("beforeA", beforeA)
-//     //         console.log("beforeB", beforeB)
+    // test(
+    //     'Contract can transfer tez to implicit accounts',
+    //     async () => {
+    //       const beforeA = await getBalance(alice);
+    //         const beforeB = await getBalance(bob);
+    //         console.log("beforeA", beforeA)
+    //         console.log("beforeB", beforeB)
 
     
-//     //       const tezParam = {
-//     //         token_opt: null,                 // None() in JS = null
-//     //         from_: uni_transfer_contract.address,
-//     //         to_:   bob,
-//     //         amount: 2_000               // mutez  → 2ꜩ
-//     //       };
+    //       const tezParam = {
+    //         token_opt: null,                 // None() in JS = null
+    //         from_: uni_transfer_contract.address,
+    //         to_:   bob,
+    //         amount: 2_000               // mutez  → 2ꜩ
+    //       };
     
-//     //       const op = await uni_transfer_contract.methodsObject.transfer(tezParam).send({amount: 1});
-//     //       await op.confirmation();                                  // 1 conf is fine
+    //       const op = await uni_transfer_contract.methodsObject.transfer(tezParam).send({amount: 1});
+    //       await op.confirmation();                                  // 1 conf is fine
     
-//     //       const afterA = await getBalance(alice);
-//     //       const afterB = await getBalance(bob);
+    //       const afterA = await getBalance(alice);
+    //       const afterB = await getBalance(bob);
     
-//     //       // fee < 0.1ꜩ ensures simple ≥ check is robust
-//     //       expect(afterA).toBeLessThan(beforeA - 1_900);         // spent 2ꜩ + fee
-//     //       expect(afterB).toBe(beforeB + 2_000);
-//     //       console.log("afterA", afterA)
-//     //       console.log("afterB", afterB)
-//     //     },
-//     //     TEST_TIME_OUT
-//     // );
+    //       // fee < 0.1ꜩ ensures simple ≥ check is robust
+    //       expect(afterA).toBeLessThan(beforeA - 1_900);         // spent 2ꜩ + fee
+    //       expect(afterB).toBe(beforeB + 2_000);
+    //       console.log("afterA", afterA)
+    //       console.log("afterB", afterB)
+    //     },
+    //     TEST_TIME_OUT
+    // );
     
 
-//     // test(
-//     //     'Contract can transfer FA2 tokens to implicit accounts',
-//     //     async () => {
-//     //       const beforeA = await fa2Balance(alice);
-//     //         const beforeB = await fa2Balance(bob);
+    // test(
+    //     'Contract can transfer FA2 tokens to implicit accounts',
+    //     async () => {
+    //       const beforeA = await fa2Balance(alice);
+    //         const beforeB = await fa2Balance(bob);
 
-//     //          // transfer 100 units of token 0 from bob to the contract
-//     //         const from_ = bob;                            // Alice
-//     //         const to_ = uni_transfer_contract.address;
-//     //         // contract
-//     //         await fa2_kt_contract.methodsObject.transfer([
-//     //           { from_, txs: [{ to_, token_id: 0, amount: 100 }] }                            // 100 units
-//     //         ]).send().then(op => op.confirmation());
+    //          // transfer 100 units of token 0 from bob to the contract
+    //         const from_ = bob;                            // Alice
+    //         const to_ = uni_transfer_contract.address;
+    //         // contract
+    //         await fa2_kt_contract.methodsObject.transfer([
+    //           { from_, txs: [{ to_, token_id: 0, amount: 100 }] }                            // 100 units
+    //         ]).send().then(op => op.confirmation());
 
 
-//     //       const fa2Param = {
-//     //         token_opt: fa2_kt,                // Some(address) in JS
-//     //         from_: uni_transfer_contract.address,
-//     //         to_:   alice,
-//     //         amount: 100
-//     //       };
+    //       const fa2Param = {
+    //         token_opt: fa2_kt,                // Some(address) in JS
+    //         from_: uni_transfer_contract.address,
+    //         to_:   alice,
+    //         amount: 100
+    //       };
     
-//     //       const op = await uni_transfer_contract.methodsObject.transfer(fa2Param).send();
-//     //       await op.confirmation();
+    //       const op = await uni_transfer_contract.methodsObject.transfer(fa2Param).send();
+    //       await op.confirmation();
     
-//     //       const afterA = await fa2Balance(alice);
-//     //       const afterB = await fa2Balance(bob);
+    //       const afterA = await fa2Balance(alice);
+    //       const afterB = await fa2Balance(bob);
     
-//     //       expect(afterB).toBe(beforeB - 100);
-//     //         expect(afterA).toBe(beforeA + 100);
+    //       expect(afterB).toBe(beforeB - 100);
+    //         expect(afterA).toBe(beforeA + 100);
             
-//     //       console.log("beforeA", beforeA)
-//     //       console.log("beforeB", beforeB)
-//     //       console.log("afterA", afterA)
-//     //       console.log("afterB", afterB)
-//     //     },
-//     //     TEST_TIME_OUT
-//     // );
+    //       console.log("beforeA", beforeA)
+    //       console.log("beforeB", beforeB)
+    //       console.log("afterA", afterA)
+    //       console.log("afterB", afterB)
+    //     },
+    //     TEST_TIME_OUT
+    // );
 
-//     // test alice can transfer tez to bob
-// });
+    // test alice can transfer tez to bob
+});
 
 
 describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
@@ -782,3 +782,135 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
 
 
 
+
+
+describe('Test Escrow Manager => Dst Escrow Withdrawals', () => {
+    const TEST_TIME_OUT = 60000;
+    let Tezos: taquito.TezosToolkit;
+    let BobTezos: taquito.TezosToolkit;
+    let escrow_manager: string;
+    let escrow_manager_contract: taquito.Contract;
+    let bob_escrow_manager_contract: taquito.Contract;
+    let fa2_kt_contract: taquito.Contract;
+    let alice: string;
+    let bob: string;
+
+    let tez_dst_escrow_immutables_onchain: any;
+    let fa2_dst_escrow_immutables_onchain: any;
+
+    let secret = '0x' + crypto.randomBytes(32).toString('hex');
+    let hashlock = keccak('keccak256').update(secret.substring(2), 'hex').digest('hex');
+    secret = secret.substring(2);
+    
+    beforeAll(async () => {
+        const config = await setupTaqueriaTest();
+        Tezos = config.Tezos;
+        BobTezos = config.BobTezos;
+        alice = config.alice;
+        bob = config.bob;
+        escrow_manager = config.escrow_manager;
+        const fa2_kt = config.fa2_kt;
+
+        escrow_manager_contract = await Tezos.contract.at(escrow_manager);
+        bob_escrow_manager_contract = await BobTezos.contract.at(escrow_manager);
+        fa2_kt_contract = await Tezos.contract.at(fa2_kt);
+        const alice_fa2_kt_contract = await Tezos.contract.at(fa2_kt);
+
+        const now = Math.floor(Date.now() / 1000);
+        
+        // 1. Create a tez destination escrow
+        const tez_dst_immutables_local = buildImmutables(null, XTZ_ESCROW_AMT, now, alice, bob, crypto.randomBytes(32).toString('hex'), hashlock);
+        const tezOp = await create_tez_dst_escrow(escrow_manager_contract, tez_dst_immutables_local, now + 1000);
+        await tezOp.confirmation(1);
+        expect(tezOp.status).toBe('applied');
+
+            // Fetch the on-chain data from the event
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const tezRawPayload = await getLatestEventPayload(escrow_manager, 'EscrowDstCreated');
+        tez_dst_escrow_immutables_onchain = tzktPayloadToImmutables(tezRawPayload);
+        expect(tez_dst_escrow_immutables_onchain).toBeDefined();
+
+
+
+        // 2. Create an FA2 destination escrow
+        const approve_op = await alice_fa2_kt_contract.methodsObject.update_operators([
+            { add_operator: { owner: alice, operator: escrow_manager, token_id: 0 } }
+        ]).send();
+         await approve_op.confirmation(1);
+
+        const fa2_dst_immutables_local = buildImmutables(fa2_kt, TOKEN_ESCROW_AMT, now + 1, alice, bob, crypto.randomBytes(32).toString('hex'), hashlock);
+        const fa2Op = await create_fa2_dst_escrow(escrow_manager_contract, fa2_dst_immutables_local, now + 1001);
+        await fa2Op.confirmation(1);
+        expect(fa2Op.status).toBe('applied');
+        // Fetch the on-chain data from the event
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const fa2RawPayload = await getLatestEventPayload(escrow_manager, 'EscrowDstCreated');
+        fa2_dst_escrow_immutables_onchain = tzktPayloadToImmutables(fa2RawPayload);
+        expect(fa2_dst_escrow_immutables_onchain).toBeDefined();
+
+    }, TEST_TIME_OUT * 4);
+
+    test('allows the taker to withdraw from a tez destination escrow', async () => {
+        const aliceBalBefore = await getBalance(Tezos, alice);
+        const bobBalBefore = await getBalance(BobTezos, bob);
+         const mgrBalBefore = await getBalance(Tezos, escrow_manager);
+
+        const op = await bob_escrow_manager_contract.methodsObject.dstWithdraw({
+            secret: secret,
+            immutables: tez_dst_escrow_immutables_onchain
+        }).send();
+        await op.confirmation(1);
+        expect(op.status).toBe('applied');
+
+        const aliceBalAfter = await getBalance(Tezos, alice);
+        const bobBalAfter = await getBalance(BobTezos, bob);
+        const mgrBalAfter = await getBalance(Tezos, escrow_manager);
+
+        // Manager's balance decreases by full amount
+        expect(mgrBalBefore - mgrBalAfter).toBe(XTZ_ESCROW_AMT + SAFETY_DEPOSIT);
+        // Alice (maker) gets the main escrow amount
+        expect(aliceBalAfter - aliceBalBefore).toBe(XTZ_ESCROW_AMT);
+        // Bob's (taker's) balance increases by safety deposit (minus gas)
+        expect(bobBalAfter).toBeGreaterThan(bobBalBefore);
+
+        const escrow_exists = await escrowExists(escrow_manager_contract, tez_dst_escrow_immutables_onchain);
+        expect(escrow_exists).toBe(false);
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const eventPayload = await getLatestEventPayload(escrow_manager, 'EscrowWithdrawDst');
+        expect(eventPayload).not.toBeNull();
+        expect(eventPayload).toBe(secret);
+    }, TEST_TIME_OUT);
+
+    test('allows the taker to withdraw from an FA2 destination escrow', async () => {
+        const aliceFa2BalBefore = await fa2Balance(fa2_kt_contract, alice);
+        const bobTezBalBefore = await getBalance(BobTezos, bob);
+        const mgrFa2BalBefore = await fa2Balance(fa2_kt_contract, escrow_manager);
+
+        const op = await bob_escrow_manager_contract.methodsObject.dstWithdraw({
+            secret: secret,
+            immutables: fa2_dst_escrow_immutables_onchain
+        }).send();
+        await op.confirmation(1);
+        expect(op.status).toBe('applied');
+
+        const aliceFa2BalAfter = await fa2Balance(fa2_kt_contract, alice);
+        const bobTezBalAfter = await getBalance(BobTezos, bob);
+        const mgrFa2BalAfter = await fa2Balance(fa2_kt_contract, escrow_manager);
+
+        // Bob gets his safety deposit back in tez
+        expect(bobTezBalAfter).toBeGreaterThan(bobTezBalBefore);
+        // Alice (maker) gets the FA2 tokens
+        expect(aliceFa2BalAfter - aliceFa2BalBefore).toBe(TOKEN_ESCROW_AMT);
+        expect(mgrFa2BalAfter).toBe(mgrFa2BalBefore - TOKEN_ESCROW_AMT);
+
+        const escrow_exists = await escrowExists(escrow_manager_contract, fa2_dst_escrow_immutables_onchain);
+        expect(escrow_exists).toBe(false);
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const eventPayload = await getLatestEventPayload(escrow_manager, 'EscrowWithdrawDst');
+        expect(eventPayload).not.toBeNull();
+        expect(eventPayload).toBe(secret);
+    }, TEST_TIME_OUT);
+    
+   });
