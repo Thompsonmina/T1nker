@@ -17,11 +17,11 @@ export namespace EscrowManager {
         rescue_delay: int
     }
     
-    type escrow_map =
+    export type escrow_map =
     big_map<BaseEscrow.BaseEscrow.immutables_hash, escrow_content>;
 
 
-    type storage = {
+    export type storage = {
         escrow_map: escrow_map
     }
     type return_type = [list<operation>, storage];
@@ -84,6 +84,14 @@ export namespace EscrowManager {
         }
     }
 
+    @view
+    const escrow_exists = (immutables: Immutables.Immutables.immutables, store: storage): bool => {
+        const escrow_id: BaseEscrow.BaseEscrow.immutables_hash = Immutables.Immutables.hash(immutables);
+
+        const is_active: bool = escrow_exists_and_is_active(store.escrow_map, escrow_id);
+        return is_active;
+    }
+
     const onlyValidImmutables = (im: Immutables.Immutables.immutables, escrow_map: escrow_map): unit => {
         
         // escrow hash here is the hash of the immutables
@@ -100,7 +108,9 @@ export namespace EscrowManager {
 
     export namespace EscrowSrcOperations {
 
-        const _src_withdraw_to = (params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): list<operation> => {
+        // Orchatrates the redraw and returns the operations that have to do with withdraw, secret emmision and fund transfer 
+        // and then returns the new state of the escrow, which should be finalised now.
+        const _src_withdraw_to = (params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): [list<operation>, escrow_map] => {
         
             BaseEscrow.BaseEscrow.onlyValidSecret(params.secret, params.immutables);
             onlyValidImmutables(params.immutables, escrow_map);
@@ -112,12 +122,24 @@ export namespace EscrowManager {
                 params.target,
                 params.immutables.amount
             );
+            
 
-            // sends back the safety deposit to the taker
+            //
+            // send back the safety deposit to the maker of the transaction instead of the taker 
+            // but only if we arent yet in public withdrawal
+            // this is because on the tezos src side its only the maker that will always create the src escrow
+            // because Tezos fa2 tokens dont have full support for thier version of permit 2
+         
+
+            const safety_reciever: address =
+            (params.immutables.timelocks.srcPublicWithdrawal > Tezos.get_now())
+                ? params.immutables.maker
+                : Tezos.get_sender();
+    
             const safety_deposit_transfer_op: operation = UniversalTransfer.UniversalTransfer.uniTransfer(
                 None(),
                 Tezos.get_self_address(),
-                Tezos.get_sender(),
+                safety_reciever,
                 params.immutables.safetyDeposit
             );
 
@@ -127,7 +149,30 @@ export namespace EscrowManager {
 
             const event_op: operation = Tezos.Next.Operation.emit("%EscrowWithdrawSrc", escrow_withdraw_event);
 
-            return list([token_transfer_op, safety_deposit_transfer_op, event_op]);
+
+            // Update the escrow state to finalized in big map
+            // a successfull withdrawal has occured
+            const escrow_id: BaseEscrow.BaseEscrow.immutables_hash = Immutables.Immutables.hash(params.immutables);
+            
+           
+            const old_escrow_content_opt: option<escrow_content> = Big_map.find_opt (escrow_id, escrow_map);
+            const old_escrow_content = match(old_escrow_content_opt) {
+                   when(Some(content)): content
+                   when(None): failwith("INTERNAL_ERROR: Escrow disappeared mid-execution")
+               };
+            
+            // Create the new content record by updating only the state field.
+            const new_escrow_content: escrow_content = 
+               {   
+                  escrow_state: Finalized(),
+                  escrow_type: old_escrow_content.escrow_type,
+                  rescue_delay: old_escrow_content.rescue_delay
+               }
+
+
+            const new_escrow_map: escrow_map = Big_map.update (escrow_id, Some(new_escrow_content), escrow_map);
+            
+            return [list([token_transfer_op, safety_deposit_transfer_op, event_op]), new_escrow_map];
         }
         
         
@@ -137,8 +182,8 @@ export namespace EscrowManager {
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcWithdrawal);
             BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.srcCancellation);
             
-            const ops: list<operation> = _src_withdraw_to(params, escrow_map);
-            return [ops, {escrow_map}];
+            const [ops, new_escrow_map]: [list<operation>, escrow_map] = _src_withdraw_to(params, escrow_map);
+            return [ops, {escrow_map: new_escrow_map}];
         }
 
         export const src_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
@@ -150,9 +195,9 @@ export namespace EscrowManager {
             
             const target: address = Tezos.get_sender();
             const new_params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables} = {secret: params.secret, target: target, immutables: params.immutables};
-            const ops: list<operation> = _src_withdraw_to(new_params, escrow_map);
+            const [ops, new_escrow_map]: [list<operation>, escrow_map] = _src_withdraw_to(new_params, escrow_map);
 
-            return [ops, {escrow_map}];
+            return [ops, {escrow_map: new_escrow_map}];
             // emit Withdrawal(secret);
             
         }
@@ -164,13 +209,13 @@ export namespace EscrowManager {
 
             const target: address = Tezos.get_sender();
             const new_params: {secret: bytes, target: address, immutables: Immutables.Immutables.immutables} = {secret: params.secret, target: target, immutables: params.immutables};
-            const ops: list<operation> = _src_withdraw_to(new_params, escrow_map);
+            const [ops, new_escrow_map]: [list<operation>, escrow_map] =_src_withdraw_to(new_params, escrow_map);
 
-            return [ops, {escrow_map}];    
+            return [ops, {escrow_map: new_escrow_map}];    
 
         }
 
-        const _src_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): list<operation> => {
+        const _src_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): [list<operation>, escrow_map] => {
         
             onlyValidImmutables(params.immutables, escrow_map);
 
@@ -193,7 +238,27 @@ export namespace EscrowManager {
 
             const event_op: operation = Tezos.Next.Operation.emit("%EscrowCancelSrc", unit);
 
-            return list([token_transfer_op, safety_deposit_transfer_op, event_op]);
+            // Once a cancellation has occured, the escrow should no longer be active
+            // Update the escrow state to cancelled in big map
+            const escrow_id: BaseEscrow.BaseEscrow.immutables_hash = Immutables.Immutables.hash(params.immutables);
+            const old_escrow_content_opt: option<escrow_content> = Big_map.find_opt (escrow_id, escrow_map);
+            const old_escrow_content = match(old_escrow_content_opt) {
+                   when(Some(content)): content
+                   when(None): failwith("INTERNAL_ERROR: Escrow disappeared mid-execution")
+               };
+            
+            // Create the new content record by updating only the state field.
+            const new_escrow_content: escrow_content = 
+               {   
+                  escrow_state: Cancelled(),
+                  escrow_type: old_escrow_content.escrow_type,
+                  rescue_delay: old_escrow_content.rescue_delay
+               }
+
+
+            const new_escrow_map: escrow_map = Big_map.update (escrow_id, Some(new_escrow_content), escrow_map);
+            
+            return [list([token_transfer_op, safety_deposit_transfer_op, event_op]), new_escrow_map];
         }
 
         export const src_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
@@ -201,22 +266,22 @@ export namespace EscrowManager {
             BaseEscrow.BaseEscrow.onlyTaker(params.immutables);
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcCancellation);
 
-            const ops: list<operation> = _src_cancel(params, escrow_map);
-            return [ops, {escrow_map}];
+            const [ops, new_escrow_map]: [list<operation>, escrow_map] = _src_cancel(params, escrow_map);
+            return [ops, {escrow_map: new_escrow_map}];
         }
 
         export const src_public_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
 
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.srcPublicCancellation);
 
-            const ops: list<operation> = _src_cancel(params, escrow_map);
-            return [ops, {escrow_map}];
+            const [ops, new_escrow_map]: [list<operation>, escrow_map] = _src_cancel(params, escrow_map);
+            return [ops, {escrow_map: new_escrow_map}];
         }
     }
 
     export namespace EscrowDstOperations {
 
-        const _dst_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): list<operation> => {
+        const _dst_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): [list<operation>, escrow_map] => {
 
             BaseEscrow.BaseEscrow.onlyValidSecret(params.secret, params.immutables);
             onlyValidImmutables(params.immutables, escrow_map);
@@ -237,9 +302,38 @@ export namespace EscrowManager {
                 params.immutables.safetyDeposit
             );
 
-            // emit withdrawal(params.secret);
+           
+            const escrow_withdraw_event: escrow_withdraw_event = {
+                secret: params.secret,
+            };
 
-            return list([token_transfer_op, safety_deposit_transfer_op]);
+            const event_op: operation = Tezos.Next.Operation.emit("%EscrowWithdrawDst", escrow_withdraw_event);
+
+
+             // Update the escrow state to finalized in big map
+            // a successfull withdrawal has occured
+            const escrow_id: BaseEscrow.BaseEscrow.immutables_hash = Immutables.Immutables.hash(params.immutables);
+            
+           
+            const old_escrow_content_opt: option<escrow_content> = Big_map.find_opt (escrow_id, escrow_map);
+            const old_escrow_content = match(old_escrow_content_opt) {
+                   when(Some(content)): content
+                   when(None): failwith("INTERNAL_ERROR: Escrow disappeared mid-execution")
+               };
+            
+            // Create the new content record by updating only the state field.
+            const new_escrow_content: escrow_content = 
+               {   
+                  escrow_state: Finalized(),
+                  escrow_type: old_escrow_content.escrow_type,
+                  rescue_delay: old_escrow_content.rescue_delay
+               }
+
+
+            const new_escrow_map: escrow_map = Big_map.update (escrow_id, Some(new_escrow_content), escrow_map);
+            
+
+            return [ list([token_transfer_op, safety_deposit_transfer_op, event_op]), new_escrow_map];
         }
 
         export const dst_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
@@ -248,8 +342,8 @@ export namespace EscrowManager {
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.dstWithdrawal);
             BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.dstCancellation);
 
-            const ops: list<operation> = _dst_withdraw(params, escrow_map);
-            return [ops, {escrow_map}];
+            const [ops, new_escrow_map]: [list<operation>, escrow_map] = _dst_withdraw(params, escrow_map);
+            return [ops, {escrow_map: new_escrow_map}];
         }
 
         export const dst_public_withdraw = (params: {secret: bytes, immutables: Immutables.Immutables.immutables }, escrow_map: escrow_map): return_type => {
@@ -257,8 +351,8 @@ export namespace EscrowManager {
             BaseEscrow.BaseEscrow.onlyAfter(params.immutables.timelocks.dstPublicWithdrawal);
             BaseEscrow.BaseEscrow.onlyBefore(params.immutables.timelocks.dstCancellation);
 
-            const ops: list<operation> = _dst_withdraw(params, escrow_map);
-            return [ops, {escrow_map}];
+            const [ops, new_escrow_map]: [list<operation>, escrow_map] = _dst_withdraw(params, escrow_map);
+            return [ops, {escrow_map: new_escrow_map}];
         }
 
         export const dst_cancel = (params: {immutables: Immutables.Immutables.immutables}, escrow_map: escrow_map): return_type => {
@@ -281,7 +375,31 @@ export namespace EscrowManager {
                 params.immutables.safetyDeposit
             );
 
-            return [list([token_transfer_op, safety_deposit_transfer_op]), {escrow_map}];
+            const event_op: operation = Tezos.Next.Operation.emit("%EscrowCancelDst", unit);
+
+            // Once a cancellation has occured, the escrow should no longer be active
+            // Update the escrow state to cancelled in big map
+            const escrow_id: BaseEscrow.BaseEscrow.immutables_hash = Immutables.Immutables.hash(params.immutables);
+            
+           
+            const old_escrow_content_opt: option<escrow_content> = Big_map.find_opt (escrow_id, escrow_map);
+            const old_escrow_content = match(old_escrow_content_opt) {
+                   when(Some(content)): content
+                   when(None): failwith("INTERNAL_ERROR: Escrow disappeared mid-execution")
+               };
+            
+            // Create the new content record by updating only the state field.
+            const new_escrow_content: escrow_content = 
+               {   
+                  escrow_state: Cancelled(),
+                  escrow_type: old_escrow_content.escrow_type,
+                  rescue_delay: old_escrow_content.rescue_delay
+               }
+
+
+            const new_escrow_map: escrow_map = Big_map.update (escrow_id, Some(new_escrow_content), escrow_map);
+            
+            return [list([token_transfer_op, safety_deposit_transfer_op, event_op]), {escrow_map: new_escrow_map}];
         }
         
     }
@@ -301,14 +419,25 @@ export namespace EscrowManager {
 
         const tez_sent: bool =  match(params.immutables.token) {
             when(Some(token)): do {
-                // If the token is an fa2(erc20) the contract needs to be approved
+                // we only need to check that safety deposit is sent no additional amount is needed in tez
+                const safety_deposit: tez = params.immutables.safetyDeposit * 1mutez;
+                const deposit_sent: tez = Tezos.get_amount();
+
+                if (deposit_sent != safety_deposit) {
+                    failwith("Incorrect amount of safety deposit sent");
+                }
                 return false
             }
+
             when(None): do {
-                // check that the appropiate amount of tez is sent
+                // check that the appropiate amount of tez is sent when fund to be escrowed is tez
+
+                const safety_deposit: tez = params.immutables.safetyDeposit * 1mutez;
                 const tez_amount: tez = params.immutables.amount * 1mutez;
+                const total_amount: tez = safety_deposit + tez_amount;
+
                 const tez_sent: tez = Tezos.get_amount();
-                if (tez_sent != tez_amount) {
+                if (tez_sent != total_amount) {
                     failwith("Incorrect amount of tez sent");
                 }
                 return true
@@ -504,7 +633,6 @@ export namespace EscrowManager {
     const dstCancel = (params: {immutables: Immutables.Immutables.immutables}, store: storage): return_type => {
         return EscrowDstOperations.dst_cancel(params, store.escrow_map);
     }
-    
     
 
 

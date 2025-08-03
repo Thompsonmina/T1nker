@@ -1,8 +1,10 @@
-#import "Counter.jsligo" "Contract"
+#import "EscrowManager.jsligo" "Contract"
 
 // When this file was created, the smart contract was defined with an entrypoint using `@entry` that was within a namespace. As such, the examples below are written with that assumption in mind.
 
 // IMPORTANT: We suggest always explicitly typing your storage values:
 // E.g.: `const storage: int = 10` or `const storage: Contract.[Namespace].storage = 10`
 
-const storage: Contract.Counter.storage = 100
+const storage: Contract.EscrowManager.storage= {
+    escrow_map: Big_map.empty as Contract.EscrowManager.escrow_map
+}   

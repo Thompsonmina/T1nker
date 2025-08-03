@@ -5,7 +5,8 @@ import { address, nat, unit } from './type-aliases';
 export type Storage = unit;
 
 type Methods = {
-    default: (
+    dummy: () => Promise<void>;
+    transfer: (
         token_opt: {Some: address} | null,
         from_: address,
         to_: address,
@@ -13,10 +14,12 @@ type Methods = {
     ) => Promise<void>;
 };
 
-export type DefaultParams = {Some: address} | null
+export type DummyParams = unit
+export type TransferParams = {Some: address} | null
 
 type MethodsObject = {
-    default: (params: {
+    dummy: () => Promise<void>;
+    transfer: (params: {
         token_opt: {Some: address} | null,
         from_: address,
         to_: address,

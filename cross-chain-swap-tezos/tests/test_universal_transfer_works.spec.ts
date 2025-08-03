@@ -200,9 +200,6 @@ describe('Universal Transfer Tests', () => {
         async () => {
           const beforeA = await fa2Balance(alice);
             const beforeB = await fa2Balance(bob);
-            console.log("beforeA", beforeA)
-            console.log("beforeB", beforeB)
-
 
              // transfer 100 units of token 0 from bob to the contract
             const from_ = bob;                            // Alice
@@ -211,7 +208,6 @@ describe('Universal Transfer Tests', () => {
             await fa2_kt_contract.methodsObject.transfer([
               { from_, txs: [{ to_, token_id: 0, amount: 100 }] }                            // 100 units
             ]).send().then(op => op.confirmation());
-
 
 
           const fa2Param = {
@@ -228,7 +224,10 @@ describe('Universal Transfer Tests', () => {
           const afterB = await fa2Balance(bob);
     
           expect(afterB).toBe(beforeB - 100);
-        expect(afterA).toBe(beforeA + 100);
+            expect(afterA).toBe(beforeA + 100);
+            
+          console.log("beforeA", beforeA)
+          console.log("beforeB", beforeB)
           console.log("afterA", afterA)
           console.log("afterB", afterB)
         },

@@ -1,4 +1,4 @@
-#import "Counter.jsligo" "Contract"
+#import "EscrowManager.jsligo" "Contract"
 
 // When this file was created, the smart contract was defined with an entrypoint using `@entry` that was within a namespace. As such, the examples below are written with that assumption in mind.
 
