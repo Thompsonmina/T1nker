@@ -26,7 +26,7 @@ const getTaqueriaConfig = async () => {
     let bob_address = "tz1cPwxzsVciajsGHdbUYKqsCVVCKx3yK2sG"
     let bob_sk = "edskS3HnwZyg8parekZBktxYEBxYN7c52etbkwxQh7sC7GCeXZxZKFvmTeBB4e7buDuhDekUUT2CkxMtKgzpJeLi7NQEKLtHxh"
 
-    let escrow_manager_address = "KT1FYq23axy7oXwBY4bJ5cKAsA44TAZFapiT"
+    let escrow_manager_address =  "KT1J1wVdVwpXXTLjebVpuQi6SedS8nrhvVR5"
     let fa2_kt_address = "KT1KHtMYqCuBTMHmSjDb3JYRXvKY4c8yb4TY"
 
 
@@ -244,6 +244,8 @@ async function getLatestEventPayload(contractAddress: string, tag: string): Prom
         const events = await response.json();
         if (events && events.length > 0) {
             // Return the payload of the most recent event.
+            console.log("url", url)
+            console.log("events", events)
             return events[0].payload;
         }
         return null;
@@ -612,10 +614,15 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
     let tez_src_escrow_immutables: any;
     let fa2_src_escrow_immutables: any;
     // The secret is the preimage to the hashlock. It's revealed by the taker to claim the funds.
-    const secret = '0x' + crypto.randomBytes(32).toString('hex');
-    //const hashlock = crypto.createHash('sha256').update(Buffer.from(secret, 'hex')).digest('hex');
-    const hashlock = keccak('keccak256').update(secret.substring(2), 'hex').digest('hex');
+    let secret = '0x' + crypto.randomBytes(32).toString('hex');
+    console.log("secret wiht ox", secret)
+   
+    let hashlock = keccak('keccak256').update(secret.substring(2), 'hex').digest('hex');
+    
+    secret = secret.substring(2);
 
+    console.log("secret", secret, "hashlock", hashlock)
+    console.log("first_time")
 
     beforeAll(async () => {
         // 1. Setup
@@ -650,12 +657,12 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
         // 3. Create the tez source escrow to be used in tests
         console.log("Creating tez source escrow for withdrawal tests...");
         const tezOp = await create_tez_src_escrow(escrow_manager_contract, tez_src_escrow_immutables);
-        await tezOp.confirmation(2);
+        await tezOp.confirmation(1);
         expect(tezOp.status).toBe('applied');
         console.log("Tez source escrow created.");
 
         let orderHash2 = crypto.randomBytes(32).toString('hex');
-        console.log("orderHash2", orderHash2, hashlock)
+        console.log("orderHash2", orderHash2, hashlock, "hashlock")
         // 4. Define unique immutables for an FA2 escrow
         fa2_src_escrow_immutables = {
             orderHash: orderHash2,
@@ -675,10 +682,10 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
         const approve_op = await fa2_kt_contract.methodsObject.update_operators([
             { add_operator: { owner: alice, operator: escrow_manager, token_id: 0 } }
         ]).send();
-        await approve_op.confirmation(2);
+        await approve_op.confirmation(1);
         
         const fa2Op = await create_fa2_src_escrow(escrow_manager_contract, fa2_src_escrow_immutables);
-        await fa2Op.confirmation(2);
+        await fa2Op.confirmation(1);
         expect(fa2Op.status).toBe('applied');
         console.log("FA2 source escrow created.");
 
@@ -690,10 +697,16 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
         const bobBalBefore = await getBalance(BobTezos, bob);
         const mgrBalBefore = await getBalance(Tezos, escrow_manager);
 
+        console.log(aliceBalBefore, bobBalBefore, mgrBalBefore)
+
         // 2. Act: Bob (the taker) calls srcWithdraw with the secret
+
+        let hashed_secret = keccak('keccak256').update(secret, 'hex').digest('hex')
+        console.log("hashed_secret", hashed_secret)
+        console.log(hashlock == hashed_secret, "hashlock == hashed_secret")
         const op = await bob_escrow_manager_contract.methodsObject.srcWithdraw({
-            hashlock: secret, // Use the secret (preimage), not the hash
-            orderHash: tez_src_escrow_immutables.orderHash
+            secret: secret, // Use the secret (preimage), not the hash
+            immutables: tez_src_escrow_immutables
         }).send();
         await op.confirmation(1);
 
@@ -714,10 +727,15 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
         // but we know it must be greater than before.
         expect(bobBalAfter).toBeGreaterThan(bobBalBefore);
 
-        // Escrow should no longer exist
+        // Escrow should no longer exist in active state since a withdrawal has occured
         const escrow_exists = await escrowExists(escrow_manager_contract, tez_src_escrow_immutables);
         expect(escrow_exists).toBe(false);
 
+        // Check that the withdrawal event was emitted with the correct secret
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Allow indexer to catch up
+        const eventPayload = await getLatestEventPayload(escrow_manager, 'EscrowWithdrawSrc');
+        expect(eventPayload).not.toBeNull();
+        expect(eventPayload).toBe(secret);
         
     }, TEST_TIME_OUT);
 
@@ -729,8 +747,8 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
         
         // 2. Act: Bob (the taker) calls srcWithdraw with the secret
         const op = await bob_escrow_manager_contract.methodsObject.srcWithdraw({
-            hashlock: secret.substring(2), // Pass the raw hex secret (preimage), without '0x'
-            orderHash: fa2_src_escrow_immutables.orderHash
+            secret: secret, // Use the secret (preimage), not the hash
+            immutables: fa2_src_escrow_immutables
         }).send();
         await op.confirmation(1);
 
@@ -748,9 +766,17 @@ describe('Test Escrow Manager => Src Escrow Withdrawals', () => {
         expect(mgrFa2BalAfter).toBe(mgrFa2BalBefore - TOKEN_ESCROW_AMT);
         expect(bobFa2BalAfter).toBe(bobFa2BalBefore + TOKEN_ESCROW_AMT);
 
-        // Escrow should no longer exist
+        
+        // Escrow should no longer exist in active state since a withdrawal has occured
         const escrow_exists = await escrowExists(escrow_manager_contract, fa2_src_escrow_immutables);
         expect(escrow_exists).toBe(false);
+
+        // Check that the withdrawal event was emitted with the correct secret
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Allow indexer to catch up
+        const eventPayload = await getLatestEventPayload(escrow_manager, 'EscrowWithdrawSrc');
+        expect(eventPayload).not.toBeNull();
+        expect(eventPayload).toBe(secret);
+
     }, TEST_TIME_OUT);
 });
 
